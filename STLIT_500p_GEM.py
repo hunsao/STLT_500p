@@ -282,33 +282,16 @@ def show_image_details(image_data):
         st.write(f"**{key}:** {value}")
 
 @st.cache_data(persist="disk")
-# def read_images_from_folder(folder_path):
-#     images = {}
-#     if not os.path.exists(folder_path):
-#         st.warning(f"La carpeta de imágenes no existe: {folder_path}")
-#         return images
-#     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
-#     for filename in filenames:
-#         if filename.lower().endswith((".jpg", ".jpeg")):
-#             image_path = os.path.join(folder_path, filename)
-#             images[filename] = image_path
-#     return images
-
 def read_images_from_folder(folder_path):
     images = {}
     if not os.path.exists(folder_path):
         st.warning(f"La carpeta de imágenes no existe: {folder_path}")
         return images
     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
-    for filename_jpg in filenames: # filename_jpg es el nombre real del archivo .jpg
-        if filename_jpg.lower().endswith((".jpg", ".jpeg")):
-            image_path = os.path.join(folder_path, filename_jpg)
-            # ****** CREAR LA CLAVE CON .PNG ******
-            if filename_jpg.lower().endswith((".jpg", ".jpeg")):
-                key_name_png = filename_jpg.rpartition('.')[0] + '.png'
-                images[key_name_png] = image_path
-            else: # improbable si ya filtramos por .jpg/.jpeg
-                images[filename_jpg] = image_path
+    for filename in filenames:
+        if filename.lower().endswith((".jpg", ".jpeg")):
+            image_path = os.path.join(folder_path, filename)
+            images[filename] = image_path
     return images
 
 def natural_sort_key(s):
@@ -556,6 +539,22 @@ if not st.session_state.data_loaded:
                 try:
                     st.session_state.df_results = pd.read_csv(csv_file_path)
                     st.write(f"DataFrame cargado desde '{csv_files[0]}'. Columnas: {st.session_state.df_results.columns.tolist()}")
+
+                    # ****** AÑADIR ESTO ******
+                    if 'filename' in st.session_state.df_results.columns:
+                        # Crear la nueva columna reemplazando .png por .jpg
+                        # Asegúrate de que solo reemplaza al final del string si es necesario
+                        st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].apply(
+                            lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
+                        )
+                        # Si algunos ya son .jpg o tienen otras extensiones, se mantendrán igual con la lógica anterior
+                        # o puedes ser más específico:
+                        # st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].str.replace(r'\.png$', '.jpg', regex=True, case=False)
+                        st.write("Columna 'filename_jpg' creada a partir de 'filename'.")
+                    else:
+                        st.error("La columna 'filename' es necesaria para crear 'filename_jpg'.")
+                        # Detener o manejar el error adecuadamente
+                
                 except Exception as e:
                     st.error(f"Error al leer el archivo CSV '{csv_files[0]}': {e}")
                     if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
