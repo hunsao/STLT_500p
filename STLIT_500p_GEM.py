@@ -651,8 +651,7 @@ else: # Data is loaded, show dashboard
         selected_age_ranges = [age.split(" (")[0] for age in selected_age_ranges_display]
         if selected_age_ranges:
             filtered_df = filtered_df[filtered_df['age'].astype(str).isin(selected_age_ranges)]
-        st.session_state.multiselect_age_range = selected_age_ranges_display # Save for repopulation
-
+        #st.session_state.multiselect_age_range = selected_age_ranges_display # Save for repopulation
 
     if st.sidebar.button("Resetear Filtros"):
         st.session_state.group_filter = "Todos"
@@ -684,7 +683,7 @@ else: # Data is loaded, show dashboard
                  # Apply OR logic: row matches if ANY selected activity keyword is in prompt
                 pattern = '|'.join(map(re.escape, selected_options_values)) # Create a regex OR pattern
                 filtered_df = filtered_df[filtered_df['prompt'].str.contains(pattern, case=False, na=False)]
-            st.session_state[f"multiselect_{category_key}"] = selected_display # Save for repopulation
+            #st.session_state[f"multiselect_{category_key}"] = selected_display # Save for repopulation
             continue # Move to next category
 
         # For other categories (gender, race, etc.)
@@ -707,7 +706,7 @@ else: # Data is loaded, show dashboard
             else:
                 # Handle columns with single string/numeric values
                 filtered_df = filtered_df[filtered_df[df_column_name].astype(str).isin(selected_options_values)]
-        st.session_state[f"multiselect_{category_key}"] = selected_display # Save for repopulation
+        #st.session_state[f"multiselect_{category_key}"] = selected_display # Save for repopulation
 
 
     # Object filters (using the new column names)
@@ -752,7 +751,7 @@ else: # Data is loaded, show dashboard
                     return any(item_to_find in current_list_str for item_to_find in items_to_find)
 
                 filtered_df = filtered_df[filtered_df[col_name].apply(lambda x: check_item_presence(x, selected_items_values))]
-            st.session_state[f"multiselect_{col_name}"] = selected_items_display # Save for repopulation
+            #st.session_state[f"multiselect_{col_name}"] = selected_items_display # Save for repopulation
         else:
             st.sidebar.caption(f"Columna '{col_name}' no encontrada para filtro de {display_name}.")
 
