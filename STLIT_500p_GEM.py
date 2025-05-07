@@ -83,14 +83,25 @@ def get_sorted_options(df, category_key, options):
 @st.cache_data(max_entries=1)
 def create_downloadable_zip(filtered_df, image_folders_dict):
     zip_buffer = io.BytesIO()
+
+    actual_fn_col_name_in_df = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN # Leerlo una vez fuera del bucle
+    original_fn_col_name_in_df = st.session_state.ORIGINAL_FILENAME_COLUMN
+    
     try:
         with ZipFile(zip_buffer, 'w') as zip_file:
             for _, row in filtered_df.iterrows():
-                image_name = row.get('filename')  # Use 'filename'
+                # image_name = row.get('filename')  # Use 'filename'
+
+                image_name_for_path_and_zip = row.get(actual_fn_col_name_in_df)
+                image_name_original = row.get(original_fn_col_name_in_df)
                 age_group = row.get('age_group') # Use 'age_group' to determine folder
-                
-                if image_name is None:
-                    st.warning(f"No se encontró el nombre de la imagen (filename) en la fila: {row.get('ID', 'N/A')}")
+
+                # if image_name is None:
+                #     st.warning(f"No se encontró el nombre de la imagen (filename) en la fila: {row.get('ID', 'N/A')}")
+                #     continue
+
+                if image_name_for_path_and_zip is None:
+                    st.warning(f"No se encontró '{actual_fn_col_name_in_df}' en la fila: ID {row.get('ID', 'N/A')}")
                     continue
                 
                 if age_group is None:
@@ -114,9 +125,13 @@ def create_downloadable_zip(filtered_df, image_folders_dict):
                 image_path = current_group_images.get(image_name)
                 
                 if image_path and os.path.exists(image_path):
-                    zip_file.write(image_path, os.path.join(folder_name_in_zip, image_name))
+                    #zip_file.write(image_path, os.path.join(folder_name_in_zip, image_name))
+                    zip_file.write(image_path, os.path.join(folder_name_in_zip, image_name_for_path_and_zip))
+
                 else:
-                    st.warning(f"No se encontró la imagen '{image_name}' en la carpeta '{folder_name_in_zip}' o la ruta no existe.")
+                    #st.warning(f"No se encontró la imagen '{image_name}' en la carpeta '{folder_name_in_zip}' o la ruta no existe.")
+                    st.warning(f"No se encontró la imagen '{image_name_for_path_and_zip}' (original: {image_name_original}) ...")
+                    
     except Exception as e:
         st.error(f"Error al crear el archivo ZIP: {str(e)}")
     finally:
@@ -897,25 +912,60 @@ else: # Data is loaded, show dashboard
                 row_data = filtered_df.iloc[i:i+images_per_row]
                 cols = st.columns(len(row_data)) # Create as many columns as there are images in this row
                 for col_index, (idx, row) in enumerate(row_data.iterrows()):
-                    image_name = row.get('filename')
-                    age_group_val = row.get('age_group') # e.g., "old", "young"
+                    # image_name = row.get('filename')
+                    # age_group_val = row.get('age_group') # e.g., "old", "young"
                     
-                    if isinstance(image_name, str) and isinstance(age_group_val, str):
+                    # if isinstance(image_name, str) and isinstance(age_group_val, str):
+                    #     folder_name_in_zip = EXPECTED_GROUP_FOLDERS.get(age_group_val.lower())
+                    #     image_path = None
+                    #     if folder_name_in_zip and folder_name_in_zip in image_folders_dict:
+                    #         image_path = image_folders_dict[folder_name_in_zip].get(image_name)
+
+                    #     if image_path and os.path.exists(image_path):
+                    #         try:
+                    #             cols[col_index].image(image_path, caption=f"{image_name}\nID: {row.get('ID', 'N/A')}", use_column_width=True)
+                    #             if cols[col_index].button(f"Detalles", key=f"btn_detail_{image_name}_{idx}"): # Unique key
+                    #                 toggle_fullscreen(image_name)
+                    #                 st.rerun()
+                    #         except Exception as e:
+                    #             cols[col_index].error(f"Error al cargar {image_name}: {e}")
+                    #     else:
+                    #         cols[col_index].warning(f"Imagen no encontrada: {image_name} en grupo {age_group_val}")
+
+                    # +++++ INICIO DEL BLOQUE NUEVO CON LOS CAMBIOS +++++
+                    image_name_actual_for_path = row.get(st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN)
+                    image_name_original_for_df = row.get(st.session_state.ORIGINAL_FILENAME_COLUMN)
+                    age_group_val = row.get('age_group')
+                    
+                    if isinstance(image_name_actual_for_path, str) and \
+                       isinstance(image_name_original_for_df, str) and \
+                       isinstance(age_group_val, str):
+                        
                         folder_name_in_zip = EXPECTED_GROUP_FOLDERS.get(age_group_val.lower())
                         image_path = None
+
                         if folder_name_in_zip and folder_name_in_zip in image_folders_dict:
-                            image_path = image_folders_dict[folder_name_in_zip].get(image_name)
+                            image_path = image_folders_dict[folder_name_in_zip].get(image_name_actual_for_path)
 
                         if image_path and os.path.exists(image_path):
                             try:
-                                cols[col_index].image(image_path, caption=f"{image_name}\nID: {row.get('ID', 'N/A')}", use_column_width=True)
-                                if cols[col_index].button(f"Detalles", key=f"btn_detail_{image_name}_{idx}"): # Unique key
-                                    toggle_fullscreen(image_name)
+                                cols[col_index].image(image_path, caption=f"{image_name_original_for_df}\nID: {row.get('ID', 'N/A')}", use_column_width=True)
+                                # Usar una clave única para el botón, idealmente combinando el nombre del archivo y su índice de fila (idx)
+                                button_key = f"btn_detail_{image_name_original_for_df}_{idx}" 
+                                if cols[col_index].button(f"Detalles", key=button_key):
+                                    toggle_fullscreen(image_name_original_for_df) # Pasamos el original para buscar en el DF y para el estado
                                     st.rerun()
                             except Exception as e:
-                                cols[col_index].error(f"Error al cargar {image_name}: {e}")
+                                cols[col_index].error(f"Error al cargar {image_name_actual_for_path}: {e}")
                         else:
-                            cols[col_index].warning(f"Imagen no encontrada: {image_name} en grupo {age_group_val}")
+                            cols[col_index].warning(f"Imagen no encontrada: {image_name_actual_for_path} (original: {image_name_original_for_df}) en grupo {age_group_val}. Ruta esperada: {image_path if image_path else 'No generada'}")
+                    
+                    elif not isinstance(image_name_actual_for_path, str):
+                        cols[col_index].caption(f"Falta '{st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN}' para ID: {row.get('ID', 'N/A')}")
+                    elif not isinstance(image_name_original_for_df, str):
+                         cols[col_index].caption(f"Falta '{st.session_state.ORIGINAL_FILENAME_COLUMN}' para ID: {row.get('ID', 'N/A')}")
+                    # +++++ FIN DEL BLOQUE NUEVO +++++
+                    
                 st.markdown("<hr style='margin-top: 10px; margin-bottom: 10px;'>", unsafe_allow_html=True)
         else:
             st.info("No hay imágenes que coincidan con los filtros aplicados.")
@@ -923,8 +973,11 @@ else: # Data is loaded, show dashboard
         col1, col2 = st.columns([3, 2]) # Image on left, details on right
         
         fullscreen_image_name = st.session_state.fullscreen_image
+        
+        fullscreen_image_name_original = st.session_state.fullscreen_image # Este es el original del DF
         # Find the row corresponding to the fullscreen image to get its age_group
-        fullscreen_row_df = filtered_df[filtered_df['filename'] == fullscreen_image_name]
+        #fullscreen_row_df = filtered_df[filtered_df['filename'] == fullscreen_image_name]
+        fullscreen_row_df = filtered_df[filtered_df[st.session_state.ORIGINAL_FILENAME_COLUMN] == fullscreen_image_name_original]
 
         if not fullscreen_row_df.empty:
             fullscreen_row = fullscreen_row_df.iloc[0]
