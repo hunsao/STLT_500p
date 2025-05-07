@@ -554,7 +554,9 @@ if not st.session_state.data_loaded:
 
                 csv_file_path = os.path.join(data_folder_path, csv_files[0])
                 try:
-                    st.session_state.df_results = pd.read_csv(csv_file_path)
+                    #st.session_state.df_results = pd.read_csv(csv_file_path)
+                    df_temp = pd.read_csv(csv_file_path) # Cargar en una variable temporal primero
+                    
                     original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
                     actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
                     
@@ -577,19 +579,19 @@ if not st.session_state.data_loaded:
                     #     st.error("La columna 'filename' es necesaria para crear 'filename_jpg'.")
                     #     # Detener o manejar el error adecuadamente
                     
-                    if original_fn_col in df.columns:
+                    if original_fn_col in df_temp.columns:
                         # Crear la nueva columna con el nombre dinámico
-                        df[actual_fn_col] = df[original_fn_col].apply(
+                        df_temp[actual_fn_col] = df_temp[original_fn_col].apply(
                             lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
                         )
                         st.write(f"Columna '{actual_fn_col}' creada/actualizada.")
-                    elif actual_fn_col in df.columns:
+                    elif actual_fn_col in df_temp.columns:
                         # Si la columna ya existe (quizás pre-procesada), simplemente la usamos.
                         st.write(f"Usando columna existente '{actual_fn_col}' para nombres de archivo de imagen.")
                     else:
                         st.error(f"No se encontró la columna '{original_fn_col}' para procesar, ni la columna '{actual_fn_col}' preexistente.")
                         st.stop()
-                    st.session_state.df_results = df # Actualizar el DataFrame en session_state   
+                    st.session_state.df_results = df_temp  # Actualizar el DataFrame en session_state   
                     
                 except Exception as e:
                     st.error(f"Error al leer el archivo CSV '{csv_files[0]}': {e}")
@@ -612,13 +614,20 @@ if not st.session_state.data_loaded:
                         if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
                         if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                         st.stop()
+
+                    # Asegurarse de no eliminar filas si la columna ACTUAL_IMAGE_FILENAME_COLUMN
+                    # pudiera tener NaNs debido a que la ORIGINAL_FILENAME_COLUMN tenía NaNs.
+                    # Es mejor hacer dropna solo en las columnas que siempre deben tener valor.
+                    cols_for_dropna = [st.session_state.ORIGINAL_FILENAME_COLUMN, 'prompt', 'age_group', 'ID']
+                    if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN not in cols_for_dropna: # Evitar duplicados
+                        if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN in st.session_state.df_results.columns:
+                             cols_for_dropna.append(st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN)
                     
                     st.session_state.df_results = st.session_state.df_results.dropna(subset=required_columns)
                     
                     # Standardize age_group to lower for matching with EXPECTED_GROUP_FOLDERS keys
                     if 'age_group' in st.session_state.df_results.columns:
                          st.session_state.df_results['age_group'] = st.session_state.df_results['age_group'].astype(str).str.lower()
-
 
                     # Define categories to populate dynamically for filters
                     # These should be the *keys* you use for st.session_state.categories
