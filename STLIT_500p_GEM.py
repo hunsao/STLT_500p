@@ -282,16 +282,33 @@ def show_image_details(image_data):
         st.write(f"**{key}:** {value}")
 
 @st.cache_data(persist="disk")
+# def read_images_from_folder(folder_path):
+#     images = {}
+#     if not os.path.exists(folder_path):
+#         st.warning(f"La carpeta de imágenes no existe: {folder_path}")
+#         return images
+#     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
+#     for filename in filenames:
+#         if filename.lower().endswith((".jpg", ".jpeg")):
+#             image_path = os.path.join(folder_path, filename)
+#             images[filename] = image_path
+#     return images
+
 def read_images_from_folder(folder_path):
     images = {}
     if not os.path.exists(folder_path):
         st.warning(f"La carpeta de imágenes no existe: {folder_path}")
         return images
     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
-    for filename in filenames:
-        if filename.lower().endswith((".jpg", ".jpeg")):
-            image_path = os.path.join(folder_path, filename)
-            images[filename] = image_path
+    for filename_jpg in filenames: # filename_jpg es el nombre real del archivo .jpg
+        if filename_jpg.lower().endswith((".jpg", ".jpeg")):
+            image_path = os.path.join(folder_path, filename_jpg)
+            # ****** CREAR LA CLAVE CON .PNG ******
+            if filename_jpg.lower().endswith((".jpg", ".jpeg")):
+                key_name_png = filename_jpg.rpartition('.')[0] + '.png'
+                images[key_name_png] = image_path
+            else: # improbable si ya filtramos por .jpg/.jpeg
+                images[filename_jpg] = image_path
     return images
 
 def natural_sort_key(s):
