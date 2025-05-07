@@ -17,10 +17,10 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 # from google_auth_httplib2 import Request # Not explicitly used, http is built directly
 from googleapiclient.errors import HttpError
+from google_auth_httplib2 import AuthorizedHttp # Asegúrate de que esta librería esté instalada
 
-from googleapiclient.http import HttpRequest
-from googleapiclient.http import build_http
-
+# from googleapiclient.http import HttpRequest
+# from googleapiclient.http import build_http
 # http = build_http() # This can cause issues if not managed carefully with caching/session state
 # http.timeout = 120 
 
@@ -126,7 +126,7 @@ def get_drive_service():
     try:
         encoded_sa = os.getenv('GOOGLE_SERVICE_ACCOUNT')
         if not encoded_sa:
-            # Try to load from Streamlit secrets if not in env
+            # Intenta cargar desde los secretos de Streamlit si no está en el entorno
             if 'GOOGLE_SERVICE_ACCOUNT_B64' in st.secrets:
                 encoded_sa = st.secrets['GOOGLE_SERVICE_ACCOUNT_B64']
             else:
@@ -139,14 +139,83 @@ def get_drive_service():
             sa_dict,
             scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
-        # Use a fresh http object for the service to avoid timeout issues with a global one
-        service_http = build_http()
-        service_http.timeout = 120
-        service = build('drive', 'v3', credentials=credentials, http=service_http)
+
+        # Crear un cliente HTTP autorizado a partir de las credenciales
+        authed_http = AuthorizedHttp(credentials)
+        # Establecer el timeout en el cliente HTTP autorizado
+        # httplib2 (usado por google-auth-httplib2) espera el timeout en el constructor
+        # o directamente en el atributo del objeto http.
+        # Para google-auth-httplib2, el timeout se pasa al construir el objeto httplib2.Http() subyacente
+        # o se puede intentar configurar directamente si la propiedad existe.
+        # La forma más común es que AuthorizedHttp maneje la creación de httplib2.Http
+        # y si httplib2.Http tiene un timeout por defecto, ese se usará.
+        # Para establecer un timeout específico, usualmente se pasa al construir el httplib2.Http
+        # que AuthorizedHttp podría encapsular.
+        # Sin embargo, httplib2.Http sí tiene un atributo timeout.
+        
+        # Re-creamos el objeto http subyacente con el timeout si es necesario,
+        # o confiamos en que `AuthorizedHttp` lo haga, o lo configuramos si es posible.
+        # La documentación de google-auth-httplib2 no es explícita sobre cómo pasar el timeout
+        # directamente a AuthorizedHttp.
+        # Una forma es acceder al objeto http subyacente si AuthorizedHttp lo expone,
+        # o construirlo con httplib2 y luego pasarlo a AuthorizedHttp.
+        # Por ahora, intentaremos la forma más directa:
+        if hasattr(authed_http, 'timeout'):
+             authed_http.timeout = 120
+        else:
+            # Si AuthorizedHttp no tiene un atributo 'timeout' directo,
+            # esto indica que el timeout debe configurarse en el objeto httplib2.Http
+            # que AuthorizedHttp usa internamente. Esto es más complejo de acceder directamente.
+            # Para la mayoría de los casos, el timeout por defecto de httplib2 podría ser suficiente,
+            # o la librería maneja reintentos.
+            # Si los timeouts persisten como problema, se necesitaría una inicialización más explícita
+            # del objeto httplib2.Http con el timeout y luego envolverlo con google_auth_httplib2.
+            # Por simplicidad y basado en que tu código original tenía http.timeout = 120,
+            # asumimos que el objeto que usa AuthorizedHttp (probablemente httplib2.Http)
+            # podría tener este atributo accesible o que la librería lo configura.
+            # Una alternativa más robusta si lo anterior no funciona:
+            import httplib2
+            http_client = httplib2.Http(timeout=120)
+            authed_http = AuthorizedHttp(credentials, http=http_client)
+
+
+        # Construir el servicio usando el cliente HTTP autorizado y configurado
+        service = build('drive', 'v3', http=authed_http)
         return service
     except Exception as e:
+        # Captura el error específico si es de tipo AttributeError por 'timeout'
+        if isinstance(e, AttributeError) and "'AuthorizedHttp' object has no attribute 'timeout'" in str(e):
+             st.error(f"Error configurando timeout en AuthorizedHttp: {str(e)}. "
+                      "Esto podría requerir un ajuste en cómo se instancia httplib2.Http "
+                      "con el timeout antes de pasarlo a AuthorizedHttp.")
         st.error(f"Error al obtener el servicio de Google Drive: {str(e)}")
         return None
+
+# def get_drive_service():
+#     try:
+#         encoded_sa = os.getenv('GOOGLE_SERVICE_ACCOUNT')
+#         if not encoded_sa:
+#             # Try to load from Streamlit secrets if not in env
+#             if 'GOOGLE_SERVICE_ACCOUNT_B64' in st.secrets:
+#                 encoded_sa = st.secrets['GOOGLE_SERVICE_ACCOUNT_B64']
+#             else:
+#                 raise ValueError("La variable de entorno GOOGLE_SERVICE_ACCOUNT o el secreto GOOGLE_SERVICE_ACCOUNT_B64 no están configurados")
+
+#         sa_json = base64.b64decode(encoded_sa).decode('utf-8')
+#         sa_dict = json.loads(sa_json)
+
+#         credentials = service_account.Credentials.from_service_account_info(
+#             sa_dict,
+#             scopes=['https://www.googleapis.com/auth/drive.readonly']
+#         )
+#         # Use a fresh http object for the service to avoid timeout issues with a global one
+#         service_http = build_http()
+#         service_http.timeout = 120
+#         service = build('drive', 'v3', credentials=credentials, http=service_http)
+#         return service
+#     except Exception as e:
+#         st.error(f"Error al obtener el servicio de Google Drive: {str(e)}")
+#         return None
 
 def list_files_in_folder(service, folder_id, retries=3):
     for attempt in range(retries):
