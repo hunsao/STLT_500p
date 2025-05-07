@@ -44,6 +44,8 @@ if 'data_loaded' not in st.session_state:
     st.session_state.image_folders = {} # To store images from multiple group folders
     st.session_state.group_filter = "Todos"  
     st.session_state.search_term = ""  
+    st.session_state.ORIGINAL_FILENAME_COLUMN = "filename" # Columna con los nombres originales (ej. .png)
+    st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN = "filename_actual_jpg" # Nombre de la columna que se creará y usará
 
 @st.cache_data()
 def count_observations(df, category_column_name, options, is_activity_filter=False):
@@ -538,23 +540,42 @@ if not st.session_state.data_loaded:
                 csv_file_path = os.path.join(data_folder_path, csv_files[0])
                 try:
                     st.session_state.df_results = pd.read_csv(csv_file_path)
+                    original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
+                    actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
+                    
                     st.write(f"DataFrame cargado desde '{csv_files[0]}'. Columnas: {st.session_state.df_results.columns.tolist()}")
-
-                    # ****** AÑADIR ESTO ******
-                    if 'filename' in st.session_state.df_results.columns:
-                        # Crear la nueva columna reemplazando .png por .jpg
-                        # Asegúrate de que solo reemplaza al final del string si es necesario
-                        st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].apply(
+                    st.write(f"Usando '{original_fn_col}' como columna de nombre de archivo original.")
+                    st.write(f"Se creará/usará '{actual_fn_col}' para los nombres de archivo de imagen reales.")
+                    
+                    # # ****** AÑADIR ESTO ******
+                    # if 'filename' in st.session_state.df_results.columns:
+                    #     # Crear la nueva columna reemplazando .png por .jpg
+                    #     # Asegúrate de que solo reemplaza al final del string si es necesario
+                    #     st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].apply(
+                    #         lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
+                    #     )
+                    #     # Si algunos ya son .jpg o tienen otras extensiones, se mantendrán igual con la lógica anterior
+                    #     # o puedes ser más específico:
+                    #     # st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].str.replace(r'\.png$', '.jpg', regex=True, case=False)
+                    #     st.write("Columna 'filename_jpg' creada a partir de 'filename'.")
+                    # else:
+                    #     st.error("La columna 'filename' es necesaria para crear 'filename_jpg'.")
+                    #     # Detener o manejar el error adecuadamente
+                    
+                    if original_fn_col in df.columns:
+                        # Crear la nueva columna con el nombre dinámico
+                        df[actual_fn_col] = df[original_fn_col].apply(
                             lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
                         )
-                        # Si algunos ya son .jpg o tienen otras extensiones, se mantendrán igual con la lógica anterior
-                        # o puedes ser más específico:
-                        # st.session_state.df_results['filename_jpg'] = st.session_state.df_results['filename'].str.replace(r'\.png$', '.jpg', regex=True, case=False)
-                        st.write("Columna 'filename_jpg' creada a partir de 'filename'.")
+                        st.write(f"Columna '{actual_fn_col}' creada/actualizada.")
+                    elif actual_fn_col in df.columns:
+                        # Si la columna ya existe (quizás pre-procesada), simplemente la usamos.
+                        st.write(f"Usando columna existente '{actual_fn_col}' para nombres de archivo de imagen.")
                     else:
-                        st.error("La columna 'filename' es necesaria para crear 'filename_jpg'.")
-                        # Detener o manejar el error adecuadamente
-                
+                        st.error(f"No se encontró la columna '{original_fn_col}' para procesar, ni la columna '{actual_fn_col}' preexistente.")
+                        st.stop()
+                    st.session_state.df_results = df # Actualizar el DataFrame en session_state   
+                    
                 except Exception as e:
                     st.error(f"Error al leer el archivo CSV '{csv_files[0]}': {e}")
                     if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
@@ -562,7 +583,14 @@ if not st.session_state.data_loaded:
                     st.stop()
 
                 if st.session_state.df_results is not None:
-                    required_columns = ['filename', 'prompt', 'age_group', 'ID']
+                    # required_columns = ['filename', 'prompt', 'age_group', 'ID']
+                    
+                    required_columns = [st.session_state.ORIGINAL_FILENAME_COLUMN, 
+                    st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN, # Asegurarse que esta exista después del paso anterior
+                    'prompt', 'age_group', 'ID']
+                    # Quitar duplicados si original_fn_col y actual_fn_col son iguales (poco probable aquí)
+                    required_columns = list(dict.fromkeys(required_columns)) 
+                    
                     missing_columns = [col for col in required_columns if col not in st.session_state.df_results.columns]
                     if missing_columns:
                         st.error(f"Las siguientes columnas obligatorias no se encontraron en el DataFrame: {', '.join(missing_columns)}")
