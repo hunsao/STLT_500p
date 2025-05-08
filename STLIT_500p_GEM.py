@@ -608,17 +608,15 @@ if not st.session_state.data_loaded:
                 st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---") # Nueva sección de depuración
                 
                 for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
-                    # folder_name_in_zip es "OLD", "YOUNG", etc.
-                    # La ruta a la carpeta de imágenes específica, ahora absoluta
-                    abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)
-                    st.write(f"Procesando grupo '{age_group_key}', carpeta esperada '{folder_name_in_zip}', ruta ABSOLUTA para leer: '{abs_current_img_folder_path}'")
+                    abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)                   
+                    st.write(f"Procesando grupo '{age_group_key}', carpeta '{folder_name_in_zip}', ruta ABS: '{abs_current_img_folder_path}'")
 
                     if os.path.exists(abs_current_img_folder_path) and os.path.isdir(abs_current_img_folder_path):
                         st.success(f"La carpeta ABSOLUTA '{abs_current_img_folder_path}' EXISTE.")
                         
                         archivos_en_carpeta = []
                         try:
-                            archivos_en_carpeta = os.listdir(abs_current_img_folder_path) # Listar desde la ruta absoluta
+                            archivos_en_carpeta = os.listdir(abs_current_img_folder_path)
                         except Exception as e_listdir:
                              st.error(f"Error al listar archivos en '{abs_current_img_folder_path}': {e_listdir}")
                         
@@ -626,48 +624,25 @@ if not st.session_state.data_loaded:
 
                         # ***** PRUEBA DE EXISTENCIA ESPECÍFICA (usando rutas absolutas) *****
                         if archivos_en_carpeta:
-                            primer_jpg_detectado = None # Renombrar para claridad
-                            for f_name in archivos_en_carpeta:
-                                if f_name.lower().endswith((".jpg", ".jpeg")):
-                                    primer_jpg_detectado = f_name
-                                    break
-                            
+                            primer_jpg_detectado = next((f for f in archivos_en_carpeta if f.lower().endswith((".jpg", ".jpeg"))), None)
                             if primer_jpg_detectado:
-                                ruta_abs_del_primer_jpg = os.path.join(abs_current_img_folder_path, primer_jpg_detectado) # Construir ruta absoluta
-                                st.write(f"Probando os.path.exists para ARCHIVO ABSOLUTO: '{ruta_abs_del_primer_jpg}'")
-                                if os.path.exists(ruta_abs_del_primer_jpg): # Comprobar existencia de la ruta absoluta
-                                    st.success(f"ÉXITO: os.path.exists ES TRUE para '{ruta_abs_del_primer_jpg}'")
-                                else:
-                                    st.error(f"FALLO: os.path.exists ES FALSE para '{ruta_abs_del_primer_jpg}'")
+                                ruta_abs_del_primer_jpg = os.path.join(abs_current_img_folder_path, primer_jpg_detectado)
+                                st.write(f"Test os.path.exists para: '{ruta_abs_del_primer_jpg}'")
+                                st.write(f"Resultado: {os.path.exists(ruta_abs_del_primer_jpg)}")
                             else:
-                                st.warning(f"No se encontraron archivos .jpg/.jpeg directamente en '{abs_current_img_folder_path}' para la prueba de existencia.")
+                                st.warning(f"No se encontraron .jpg/.jpeg en '{abs_current_img_folder_path}' para test.")
                         else:
-                            st.warning(f"La carpeta '{abs_current_img_folder_path}' está vacía o no se pudo listar.")
-                        # ***** FIN PRUEBA DE EXISTENCIA ESPECÍFICA *****
+                            st.warning(f"'{abs_current_img_folder_path}' está vacía o no se pudo listar.")
 
-                        # Ahora llama a read_images_from_folder CON LA RUTA ABSOLUTA
-                        images = read_images_from_folder(abs_current_img_folder_path) 
+                        images = read_images_from_folder(abs_current_img_folder_path) # Pasas la ruta absoluta
                         st.session_state.image_folders[folder_name_in_zip] = images
-                        st.write(f"Cargadas {len(images)} imágenes (según read_images_from_folder) de la carpeta '{folder_name_in_zip}'.")
+                        st.write(f"Cargadas {len(images)} imágenes de '{folder_name_in_zip}'.")
                         if images: 
                             loaded_any_images = True
-                            # Opcional: Mostrar una muestra de lo que read_images_from_folder almacenó
-                            # st.write(f"  Muestra de dict para '{folder_name_in_zip}': {list(images.items())[:1]}")
                     else:
-                        st.warning(f"Carpeta de imágenes ABSOLUTA '{abs_current_img_folder_path}' NO encontrada o no es un directorio.")
+                        st.warning(f"Carpeta ABS '{abs_current_img_folder_path}' NO encontrada o no es dir.")
                 
-                st.write("--- FIN VERIFICACIÓN DETALLADA ---") 
-
-                
-                for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
-                    current_img_folder_path = os.path.join(data_folder_path, folder_name_in_zip)
-                    if os.path.exists(current_img_folder_path):
-                        images = read_images_from_folder(current_img_folder_path)
-                        st.session_state.image_folders[folder_name_in_zip] = images
-                        st.write(f"Cargadas {len(images)} imágenes de la carpeta '{folder_name_in_zip}'.")
-                        if images: loaded_any_images = True
-                    else:
-                        st.warning(f"Carpeta de imágenes '{folder_name_in_zip}' no encontrada en '{data_folder_path}'.")
+                st.write("--- FIN VERIFICACIÓN Y CARGA DE IMÁGENES ---") 
                 
                 if not loaded_any_images and not st.session_state.image_folders: # Check if any images at all were loaded
                     st.error("No se cargaron imágenes de ninguna carpeta de grupo. Verifique la estructura del ZIP y los nombres de las carpetas.")
@@ -675,7 +650,6 @@ if not st.session_state.data_loaded:
                     if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
                     if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                     st.stop()
-
 
                 # # Load DataFrame
                 # csv_files = [f for f in os.listdir(data_folder_path) if f.endswith('.csv') and (f.startswith('df_') or True)] # More flexible CSV naming
@@ -808,7 +782,7 @@ if not st.session_state.data_loaded:
                 #     if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                 #     st.stop()
 
-#####################################
+
                 # Load DataFrame
                 csv_files = [f for f in os.listdir(data_folder_path) if f.endswith('.csv') and (f.startswith('df_') or True)]
                 if not csv_files:
@@ -817,7 +791,7 @@ if not st.session_state.data_loaded:
                     if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                     st.stop()
                 
-                csv_file_path = os.path.join(data_folder_path, csv_files[0])
+                csv_file_path = os.path.join(abs_data_folder_path, csv_files[0])
                 st.write(f"Intentando leer CSV desde: {csv_file_path}")
                 
                 df_temp = None # Inicializar a None
