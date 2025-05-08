@@ -29,10 +29,10 @@ st.set_page_config(layout="wide")
 # Define new group names and corresponding folder names
 # Ensure these folder names EXACTLY match what's inside your 'data/' directory in the ZIP
 EXPECTED_GROUP_FOLDERS = {
-    "old": "older",
-    "young": "younger",
-    "middle-age": "middle-aged", # Use the exact value from your 'age_group' column
-    "person": "person" # Assuming 'person' is an age_group value
+    "older": "OLD",             # La clave "older" (de df['age_group']) mapea a la carpeta "OLD"
+    "younger": "YOUNG",           # La clave "younger" (de df['age_group']) mapea a la carpeta "YOUNG"
+    "middle-aged": "MIDDLE-AGE",# La clave "middle-aged" (de df['age_group']) mapea a la carpeta "MIDDLE-AGE"
+    "person": "PERSON"            # La clave "person" (de df['age_group']) mapea a la carpeta "PERSON"
 }
 # If your age_group column has values like 'older', 'younger', 'middle_aged', 'general_person'
 # then update EXPECTED_GROUP_FOLDERS keys accordingly.
