@@ -307,7 +307,8 @@ def read_images_from_folder(folder_path):
     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
     for filename in filenames:
         if filename.lower().endswith((".jpg", ".jpeg")):
-            image_path = os.path.join(folder_path, filename)
+            #image_path = os.path.join(folder_path, filename)
+            image_path = os.path.abspath(os.path.join(folder_path, filename)) # Convertir a absoluta
             images[filename] = image_path
     return images
 
@@ -536,6 +537,50 @@ if not st.session_state.data_loaded:
 
                 st.session_state.image_folders = {}
                 loaded_any_images = False
+
+                st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---") # Nueva sección de depuración
+                for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
+                    current_img_folder_path_to_read = os.path.join(data_folder_path, folder_name_in_zip)
+                    st.write(f"Procesando grupo '{age_group_key}', carpeta esperada en ZIP '{folder_name_in_zip}', ruta completa para leer: '{current_img_folder_path_to_read}'")
+
+                    if os.path.exists(current_img_folder_path_to_read) and os.path.isdir(current_img_folder_path_to_read):
+                        st.success(f"La carpeta '{current_img_folder_path_to_read}' EXISTE.")
+                        archivos_en_carpeta = os.listdir(current_img_folder_path_to_read)
+                        st.write(f"Archivos encontrados en '{current_img_folder_path_to_read}' (hasta 5): {archivos_en_carpeta[:5]}")
+
+                        # ***** PRUEBA DE EXISTENCIA ESPECÍFICA *****
+                        if archivos_en_carpeta:
+                            # Tomemos el primer archivo .jpg que encontremos para probar
+                            primer_jpg_encontrado = None
+                            for f_name in archivos_en_carpeta:
+                                if f_name.lower().endswith((".jpg", ".jpeg")):
+                                    primer_jpg_encontrado = f_name
+                                    break
+                            
+                            if primer_jpg_encontrado:
+                                ruta_completa_primer_jpg = os.path.join(current_img_folder_path_to_read, primer_jpg_encontrado)
+                                st.write(f"Probando os.path.exists para: '{ruta_completa_primer_jpg}'")
+                                if os.path.exists(ruta_completa_primer_jpg):
+                                    st.success(f"ÉXITO: os.path.exists ES TRUE para '{ruta_completa_primer_jpg}'")
+                                else:
+                                    st.error(f"FALLO: os.path.exists ES FALSE para '{ruta_completa_primer_jpg}'")
+                            else:
+                                st.warning(f"No se encontraron archivos .jpg/.jpeg directamente en '{current_img_folder_path_to_read}' para la prueba de existencia.")
+                        else:
+                            st.warning(f"La carpeta '{current_img_folder_path_to_read}' está vacía.")
+                        # ***** FIN PRUEBA DE EXISTENCIA ESPECÍFICA *****
+
+                        # Ahora llama a read_images_from_folder
+                        images = read_images_from_folder(current_img_folder_path_to_read)
+                        st.session_state.image_folders[folder_name_in_zip] = images
+                        st.write(f"Cargadas {len(images)} imágenes (según read_images_from_folder) de la carpeta '{folder_name_in_zip}'.")
+                        if images: loaded_any_images = True
+                    else:
+                        st.warning(f"Carpeta de imágenes '{current_img_folder_path_to_read}' NO encontrada o no es un directorio.")
+                
+                st.write("--- FIN VERIFICACIÓN DETALLADA ---") # Fin sección depuración
+
+                
                 for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
                     current_img_folder_path = os.path.join(data_folder_path, folder_name_in_zip)
                     if os.path.exists(current_img_folder_path):
