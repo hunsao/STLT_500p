@@ -272,20 +272,62 @@ def download_file_from_google_drive(service, file_id, dest_path, retries=3):
             else:
                 raise
 
-def extract_zip(zip_path, extract_to):
+# def extract_zip(zip_path, extract_to):
+#     try:
+#         with ZipFile(zip_path, 'r') as zip_ref:
+#             zip_ref.extractall(extract_to)
+#         st.write("Archivos extraídos en:", extract_to)
+#         st.write("Contenido de la carpeta extraída:", os.listdir(extract_to))
+#         # Check for 'data' subdirectory
+#         if 'data' in os.listdir(extract_to):
+#             st.write("Contenido de 'data/':", os.listdir(os.path.join(extract_to, 'data')))
+#         else:
+#             st.warning("No se encontró la subcarpeta 'data/' en el ZIP extraído.")
+
+#     except Exception as e:
+#         st.error(f"Error al extraer el archivo ZIP: {str(e)}")
+
+def extract_zip(zip_path, extract_to_relative): # extract_to_relative es "extracted_data_content"
+    abs_extract_to = os.path.abspath(extract_to_relative) # Convertir a absoluta
+    st.write(f"Ruta absoluta de extracción planificada: {abs_extract_to}")
+
+    # Asegurarse de que el directorio de extracción base exista (y esté vacío si es una re-ejecución)
+    if os.path.exists(abs_extract_to):
+        st.write(f"Directorio de extracción '{abs_extract_to}' ya existe, eliminándolo para nueva extracción.")
+        shutil.rmtree(abs_extract_to, ignore_errors=True) # Eliminar si existe para asegurar extracción limpia
+    
+    try:
+        os.makedirs(abs_extract_to, exist_ok=True) # Crear el directorio base de extracción
+        st.write(f"Directorio de extracción '{abs_extract_to}' creado/asegurado.")
+    except Exception as e_mkdir:
+        st.error(f"No se pudo crear el directorio de extracción '{abs_extract_to}': {e_mkdir}")
+        raise # Re-lanzar para detener la ejecución
+
     try:
         with ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_to)
-        st.write("Archivos extraídos en:", extract_to)
-        st.write("Contenido de la carpeta extraída:", os.listdir(extract_to))
-        # Check for 'data' subdirectory
-        if 'data' in os.listdir(extract_to):
-            st.write("Contenido de 'data/':", os.listdir(os.path.join(extract_to, 'data')))
+            st.write(f"--- Nombres de archivo DENTRO del ZIP ('{zip_path}'): ---")
+            namelist = zip_ref.namelist()
+            st.write(namelist[:10]) # Mostrar los primeros 10 miembros
+            if not any(name.startswith('data/') for name in namelist if '/' in name):
+                 st.warning("ADVERTENCIA: No se encontraron archivos que comiencen con 'data/' en el ZIP. ¿La estructura es correcta (zip_root/data/OLD/imagen.jpg)?")
+
+            st.write(f"--- Extrayendo a RUTA ABSOLUTA: {abs_extract_to} ---")
+            zip_ref.extractall(path=abs_extract_to) # Usar path= para claridad
+            st.success(f"Archivos extraídos en RUTA ABSOLUTA: {abs_extract_to}")
+        
+        # Listar contenido después de la extracción
+        st.write(f"Contenido de '{abs_extract_to}' después de extraer (primer nivel): {os.listdir(abs_extract_to)}")
+        
+        # Verificar si 'data' está dentro de abs_extract_to
+        expected_data_subfolder = os.path.join(abs_extract_to, 'data')
+        if os.path.exists(expected_data_subfolder) and os.path.isdir(expected_data_subfolder):
+            st.write(f"Contenido de '{expected_data_subfolder}' (subcarpeta 'data'): {os.listdir(expected_data_subfolder)}")
         else:
-            st.warning("No se encontró la subcarpeta 'data/' en el ZIP extraído.")
+            st.warning(f"La subcarpeta 'data' ('{expected_data_subfolder}') NO se encontró directamente dentro de '{abs_extract_to}'.")
 
     except Exception as e:
-        st.error(f"Error al extraer el archivo ZIP: {str(e)}")
+        st.error(f"Error al extraer el archivo ZIP a '{abs_extract_to}': {str(e)}")
+        raise # Re-lanzar
 
 @st.cache_data()
 def extract_folder_id(url):
@@ -299,17 +341,36 @@ def show_image_details(image_data):
         st.write(f"**{key}:** {value}")
 
 @st.cache_data(persist="disk")
-def read_images_from_folder(folder_path):
+# def read_images_from_folder(folder_path):
+#     images = {}
+#     if not os.path.exists(folder_path):
+#         st.warning(f"La carpeta de imágenes no existe: {folder_path}")
+#         return images
+#     filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
+#     for filename in filenames:
+#         if filename.lower().endswith((".jpg", ".jpeg")):
+#             #image_path = os.path.join(folder_path, filename)
+#             image_path = os.path.abspath(os.path.join(folder_path, filename)) # Convertir a absoluta
+#             images[filename] = image_path
+#     return images
+def read_images_from_folder(abs_folder_path): # Ahora espera una ruta absoluta
     images = {}
-    if not os.path.exists(folder_path):
-        st.warning(f"La carpeta de imágenes no existe: {folder_path}")
+    # No es necesario os.path.abspath() aquí si ya es absoluta
+    
+    if not (os.path.exists(abs_folder_path) and os.path.isdir(abs_folder_path)):
+        st.warning(f"La carpeta de imágenes absoluta no existe o no es un dir: {abs_folder_path}")
         return images
-    filenames = sorted(os.listdir(folder_path), key=natural_sort_key)
-    for filename in filenames:
-        if filename.lower().endswith((".jpg", ".jpeg")):
-            #image_path = os.path.join(folder_path, filename)
-            image_path = os.path.abspath(os.path.join(folder_path, filename)) # Convertir a absoluta
-            images[filename] = image_path
+    
+    try:
+        filenames_on_disk = sorted(os.listdir(abs_folder_path), key=natural_sort_key)
+    except Exception as e:
+        st.error(f"Error listando directorio {abs_folder_path}: {e}")
+        return images
+
+    for filename_on_disk in filenames_on_disk:
+        if filename_on_disk.lower().endswith((".jpg", ".jpeg")):
+            image_path_abs = os.path.join(abs_folder_path, filename_on_disk) # Ya es absoluta
+            images[filename_on_disk] = image_path_abs 
     return images
 
 def natural_sort_key(s):
@@ -528,8 +589,14 @@ if not st.session_state.data_loaded:
                 st.stop()
             
             if os.path.exists(temp_extract_path):
-                data_folder_path = os.path.join(temp_extract_path, 'data')
-                if not os.path.exists(data_folder_path):
+
+                abs_temp_extract_path = os.path.abspath(temp_extract_path)
+                
+              # La carpeta 'data' debería estar dentro de abs_temp_extract_path
+                abs_data_folder_path = os.path.join(abs_temp_extract_path, 'data')
+                st.write(f"Ruta absoluta esperada para la carpeta 'data': {abs_data_folder_path}")
+
+                if not os.path.exists(abs_data_folder_path):
                     st.error(f"La carpeta 'data/' no se encontró dentro del ZIP extraído en '{temp_extract_path}'. Verifique la estructura del ZIP.")
                     if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
                     if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
@@ -539,46 +606,57 @@ if not st.session_state.data_loaded:
                 loaded_any_images = False
 
                 st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---") # Nueva sección de depuración
+                
                 for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
-                    current_img_folder_path_to_read = os.path.join(data_folder_path, folder_name_in_zip)
-                    st.write(f"Procesando grupo '{age_group_key}', carpeta esperada en ZIP '{folder_name_in_zip}', ruta completa para leer: '{current_img_folder_path_to_read}'")
+                    # folder_name_in_zip es "OLD", "YOUNG", etc.
+                    # La ruta a la carpeta de imágenes específica, ahora absoluta
+                    abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)
+                    st.write(f"Procesando grupo '{age_group_key}', carpeta esperada '{folder_name_in_zip}', ruta ABSOLUTA para leer: '{abs_current_img_folder_path}'")
 
-                    if os.path.exists(current_img_folder_path_to_read) and os.path.isdir(current_img_folder_path_to_read):
-                        st.success(f"La carpeta '{current_img_folder_path_to_read}' EXISTE.")
-                        archivos_en_carpeta = os.listdir(current_img_folder_path_to_read)
-                        st.write(f"Archivos encontrados en '{current_img_folder_path_to_read}' (hasta 5): {archivos_en_carpeta[:5]}")
+                    if os.path.exists(abs_current_img_folder_path) and os.path.isdir(abs_current_img_folder_path):
+                        st.success(f"La carpeta ABSOLUTA '{abs_current_img_folder_path}' EXISTE.")
+                        
+                        archivos_en_carpeta = []
+                        try:
+                            archivos_en_carpeta = os.listdir(abs_current_img_folder_path) # Listar desde la ruta absoluta
+                        except Exception as e_listdir:
+                             st.error(f"Error al listar archivos en '{abs_current_img_folder_path}': {e_listdir}")
+                        
+                        st.write(f"Archivos encontrados en '{abs_current_img_folder_path}' (hasta 5): {archivos_en_carpeta[:5]}")
 
-                        # ***** PRUEBA DE EXISTENCIA ESPECÍFICA *****
+                        # ***** PRUEBA DE EXISTENCIA ESPECÍFICA (usando rutas absolutas) *****
                         if archivos_en_carpeta:
-                            # Tomemos el primer archivo .jpg que encontremos para probar
-                            primer_jpg_encontrado = None
+                            primer_jpg_detectado = None # Renombrar para claridad
                             for f_name in archivos_en_carpeta:
                                 if f_name.lower().endswith((".jpg", ".jpeg")):
-                                    primer_jpg_encontrado = f_name
+                                    primer_jpg_detectado = f_name
                                     break
                             
-                            if primer_jpg_encontrado:
-                                ruta_completa_primer_jpg = os.path.join(current_img_folder_path_to_read, primer_jpg_encontrado)
-                                st.write(f"Probando os.path.exists para: '{ruta_completa_primer_jpg}'")
-                                if os.path.exists(ruta_completa_primer_jpg):
-                                    st.success(f"ÉXITO: os.path.exists ES TRUE para '{ruta_completa_primer_jpg}'")
+                            if primer_jpg_detectado:
+                                ruta_abs_del_primer_jpg = os.path.join(abs_current_img_folder_path, primer_jpg_detectado) # Construir ruta absoluta
+                                st.write(f"Probando os.path.exists para ARCHIVO ABSOLUTO: '{ruta_abs_del_primer_jpg}'")
+                                if os.path.exists(ruta_abs_del_primer_jpg): # Comprobar existencia de la ruta absoluta
+                                    st.success(f"ÉXITO: os.path.exists ES TRUE para '{ruta_abs_del_primer_jpg}'")
                                 else:
-                                    st.error(f"FALLO: os.path.exists ES FALSE para '{ruta_completa_primer_jpg}'")
+                                    st.error(f"FALLO: os.path.exists ES FALSE para '{ruta_abs_del_primer_jpg}'")
                             else:
-                                st.warning(f"No se encontraron archivos .jpg/.jpeg directamente en '{current_img_folder_path_to_read}' para la prueba de existencia.")
+                                st.warning(f"No se encontraron archivos .jpg/.jpeg directamente en '{abs_current_img_folder_path}' para la prueba de existencia.")
                         else:
-                            st.warning(f"La carpeta '{current_img_folder_path_to_read}' está vacía.")
+                            st.warning(f"La carpeta '{abs_current_img_folder_path}' está vacía o no se pudo listar.")
                         # ***** FIN PRUEBA DE EXISTENCIA ESPECÍFICA *****
 
-                        # Ahora llama a read_images_from_folder
-                        images = read_images_from_folder(current_img_folder_path_to_read)
+                        # Ahora llama a read_images_from_folder CON LA RUTA ABSOLUTA
+                        images = read_images_from_folder(abs_current_img_folder_path) 
                         st.session_state.image_folders[folder_name_in_zip] = images
                         st.write(f"Cargadas {len(images)} imágenes (según read_images_from_folder) de la carpeta '{folder_name_in_zip}'.")
-                        if images: loaded_any_images = True
+                        if images: 
+                            loaded_any_images = True
+                            # Opcional: Mostrar una muestra de lo que read_images_from_folder almacenó
+                            # st.write(f"  Muestra de dict para '{folder_name_in_zip}': {list(images.items())[:1]}")
                     else:
-                        st.warning(f"Carpeta de imágenes '{current_img_folder_path_to_read}' NO encontrada o no es un directorio.")
+                        st.warning(f"Carpeta de imágenes ABSOLUTA '{abs_current_img_folder_path}' NO encontrada o no es un directorio.")
                 
-                st.write("--- FIN VERIFICACIÓN DETALLADA ---") # Fin sección depuración
+                st.write("--- FIN VERIFICACIÓN DETALLADA ---") 
 
                 
                 for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
