@@ -122,7 +122,7 @@ def create_downloadable_zip(filtered_df, image_folders_dict):
                     st.warning(f"No se encontraron imágenes cargadas para el grupo de carpetas: {folder_name_in_zip}")
                     continue
 
-                image_path = current_group_images.get(image_name)
+                image_path = current_group_images.get(image_name_for_path_and_zip)
                 
                 if image_path and os.path.exists(image_path):
                     #zip_file.write(image_path, os.path.join(folder_name_in_zip, image_name))
@@ -1115,6 +1115,12 @@ else: # Data is loaded, show dashboard
                     image_name_actual_for_path = row.get(st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN)
                     image_name_original_for_df = row.get(st.session_state.ORIGINAL_FILENAME_COLUMN)
                     age_group_val = row.get('age_group')
+
+                   # --- Debugging ---
+                    cols[col_index].write(f"DF Original: {image_name_original_for_df}") # Descomentar para depurar
+                    cols[col_index].write(f"DF Actual (.jpg): {image_name_actual_for_path}") # Descomentar para depurar
+                    cols[col_index].write(f"Age Group: {age_group_val}") # Descomentar para depurar
+                    # --- Fin Debugging ---
                     
                     if isinstance(image_name_actual_for_path, str) and \
                        isinstance(image_name_original_for_df, str) and \
@@ -1123,9 +1129,31 @@ else: # Data is loaded, show dashboard
                         folder_name_in_zip = EXPECTED_GROUP_FOLDERS.get(age_group_val.lower())
                         image_path = None
 
+                        # --- Debugging ---
+                        if folder_name_in_zip:
+                           cols[col_index].write(f"Folder in ZIP: {folder_name_in_zip}") # Descomentar
+                           if folder_name_in_zip in image_folders_dict:
+                               cols[col_index].write(f"Keys in image_folders_dict['{folder_name_in_zip}'][0:5]: {list(image_folders_dict[folder_name_in_zip].keys())[0:5]}") # Mostrar algunas claves
+                           else:
+                               cols[col_index].warning(f"Folder '{folder_name_in_zip}' NO ENCONTRADO en image_folders_dict. Claves disponibles: {list(image_folders_dict.keys())}")
+                        else:
+                           cols[col_index].warning(f"No se pudo mapear age_group '{age_group_val}' a folder_name_in_zip.")
+                        # --- Fin Debugging ---
+                           
                         if folder_name_in_zip and folder_name_in_zip in image_folders_dict:
+                            # --- Debugging: Búsqueda exacta ---
+                            target_key = image_name_actual_for_path
+                            if target_key in image_folders_dict[folder_name_in_zip]:
+                                cols[col_index].success(f"'{target_key}' ENCONTRADO en image_folders_dict['{folder_name_in_zip}']!")
+                            else:
+                                cols[col_index].error(f"'{target_key}' NO ENCONTRADO en image_folders_dict['{folder_name_in_zip}']!")
+                            # --- Fin Debugging ---
                             image_path = image_folders_dict[folder_name_in_zip].get(image_name_actual_for_path)
 
+                        # --- Debugging ---
+                        cols[col_index].write(f"Image Path Generado: {image_path}") # Descomentar
+                        # --- Fin Debugging ---
+                           
                         if image_path and os.path.exists(image_path):
                             try:
                                 cols[col_index].image(image_path, caption=f"{image_name_original_for_df}\nID: {row.get('ID', 'N/A')}", use_column_width=True)
@@ -1137,8 +1165,17 @@ else: # Data is loaded, show dashboard
                             except Exception as e:
                                 cols[col_index].error(f"Error al cargar {image_name_actual_for_path}: {e}")
                         else:
-                            cols[col_index].warning(f"Imagen no encontrada: {image_name_actual_for_path} (original: {image_name_original_for_df}) en grupo {age_group_val}. Ruta esperada: {image_path if image_path else 'No generada'}")
-                    
+                            #cols[col_index].warning(f"Imagen no encontrada: {image_name_actual_for_path} (original: {image_name_original_for_df}) en grupo {age_group_val}. Ruta esperada: {image_path if image_path else 'No generada'}")
+                            # Mensaje de warning más detallado
+                            warning_msg = f"Imagen no encontrada: '{image_name_actual_for_path}'"
+                            warning_msg += f"\n(Original DF: '{image_name_original_for_df}')"
+                            warning_msg += f"\nGrupo: '{age_group_val}' (Carpeta: '{folder_name_in_zip if folder_name_in_zip else 'No mapeada'}')"
+                            if image_path:
+                                warning_msg += f"\nRuta generada: '{image_path}' (Pero os.path.exists es Falso)"
+                            else:
+                                warning_msg += "\nRuta no generada (clave no encontrada en diccionario de imágenes)"
+                            cols[col_index].warning(warning_msg)
+                            
                     elif not isinstance(image_name_actual_for_path, str):
                         cols[col_index].caption(f"Falta '{st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN}' para ID: {row.get('ID', 'N/A')}")
                     elif not isinstance(image_name_original_for_df, str):
