@@ -811,13 +811,32 @@ if not st.session_state.data_loaded:
             # Clean up temporary files
             if os.path.exists(temp_zip_path):
                 os.remove(temp_zip_path)
-            if os.path.exists(temp_extract_path):
-                shutil.rmtree(temp_extract_path, ignore_errors=True)
+                
+            # if os.path.exists(temp_extract_path):
+            #     shutil.rmtree(temp_extract_path, ignore_errors=True)
             
+            # if st.session_state.data_loaded:
+            #     st.rerun()
+            # else:
+            #     st.error("La carga de datos falló. Revise los mensajes anteriores.")
+
+            # La carpeta extraída (temp_extract_path) SÓLO se elimina si la carga FALLÓ
+            # antes de llegar aquí. Si la carga fue exitosa (st.session_state.data_loaded es True),
+            # NECESITAMOS CONSERVAR LA CARPETA para que el dashboard pueda mostrar las imágenes.
+            # La limpieza en caso de error ya se maneja en los bloques st.stop() anteriores.
+            # La función extract_zip también limpia el directorio si ya existe al inicio.
             if st.session_state.data_loaded:
-                st.rerun()
+                 st.write(f"Conservando carpeta extraída en: {os.path.abspath(temp_extract_path)}")
+                 st.rerun() # Ejecutar rerun sólo si la carga fue exitosa
             else:
-                st.error("La carga de datos falló. Revise los mensajes anteriores.")
+                # Este 'else' probablemente nunca se alcance si los st.stop() funcionan,
+                # pero por seguridad, si data_loaded no es True aquí, limpiamos.
+                st.error("La carga de datos parece haber fallado implícitamente. Limpiando carpeta extraída.")
+                if os.path.exists(temp_extract_path):
+                    st.write(f"Eliminando carpeta extraída temporal debido a fallo: {temp_extract_path}")
+                    shutil.rmtree(temp_extract_path, ignore_errors=True)
+            # --- FIN SECCIÓN DE LIMPIEZA MODIFICADA ---
+
 else: # Data is loaded, show dashboard
     df_results = st.session_state.df_results
     image_folders_dict = st.session_state.image_folders
