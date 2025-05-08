@@ -510,16 +510,16 @@ if not st.session_state.data_loaded:
             try:
                 extract_zip(temp_zip_path, temp_extract_path)
            # ***** AÑADIR ESTA DEPURACIÓN *****
-            st.write("--- Verificación Post-Extracción ---")
-            for age_group_key_debug, folder_name_in_zip_debug in EXPECTED_GROUP_FOLDERS.items():
-                specific_folder_path = os.path.join(temp_extract_path, 'data', folder_name_in_zip_debug)
-                if os.path.exists(specific_folder_path) and os.path.isdir(specific_folder_path):
-                    st.write(f"Contenido de la carpeta extraída '{specific_folder_path}' (primeros 5 archivos):")
-                    st.write(os.listdir(specific_folder_path)[:5])
-                else:
-                    st.warning(f"La carpeta '{specific_folder_path}' NO existe después de la extracción.")
-            st.write("--- Fin Verificación Post-Extracción ---")
-            # ***** FIN DE LA DEPURACIÓN *****        
+                st.write("--- Verificación Post-Extracción ---")
+                for age_group_key_debug, folder_name_in_zip_debug in EXPECTED_GROUP_FOLDERS.items():
+                    specific_folder_path = os.path.join(temp_extract_path, 'data', folder_name_in_zip_debug)
+                    if os.path.exists(specific_folder_path) and os.path.isdir(specific_folder_path):
+                        st.write(f"Contenido de la carpeta extraída '{specific_folder_path}' (primeros 5 archivos):")
+                        st.write(os.listdir(specific_folder_path)[:5])
+                    else:
+                        st.warning(f"La carpeta '{specific_folder_path}' NO existe después de la extracción.")
+                st.write("--- Fin Verificación Post-Extracción ---")
+                # ***** FIN DE LA DEPURACIÓN *****        
             except Exception as e:
                 st.error(f"Fallo al extraer el archivo ZIP: {e}")
                 if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
