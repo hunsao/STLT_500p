@@ -555,8 +555,9 @@ if not st.session_state.data_loaded:
     if selected_file_name and st.button("Confirmar selección y Cargar Datos"):
         with st.spinner("Descargando y procesando archivo ZIP... Esto puede tardar unos minutos."):
             file_id = file_options[selected_file_name]
-            temp_zip_path = "temp_data.zip" # Use a more descriptive name
+            temp_zip_path = "temp_data.zip"  # Nombre del archivo ZIP temporal
             
+            # Descargar el archivo ZIP desde Google Drive
             try:
                 download_file_from_google_drive(service, file_id, temp_zip_path)
                 st.success(f"Archivo '{selected_file_name}' descargado.")
@@ -564,14 +565,14 @@ if not st.session_state.data_loaded:
                 st.error(f"Fallo al descargar el archivo ZIP: {e}")
                 if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
                 st.stop()
-
-            temp_extract_path = "extracted_data_content" # More descriptive
+            # Definir el directorio de extracción
+            temp_extract_path = "extracted_data_content" 
             if os.path.exists(temp_extract_path): # Clean up previous extraction
                 shutil.rmtree(temp_extract_path, ignore_errors=True)
-            
+           # Extraer el ZIP      
             try:
                 extract_zip(temp_zip_path, temp_extract_path)
-           # ***** AÑADIR ESTA DEPURACIÓN *****
+           # Verificación post-extracción (depuración)
                 st.write("--- Verificación Post-Extracción ---")
                 for age_group_key_debug, folder_name_in_zip_debug in EXPECTED_GROUP_FOLDERS.items():
                     specific_folder_path = os.path.join(temp_extract_path, 'data', folder_name_in_zip_debug)
@@ -588,9 +589,15 @@ if not st.session_state.data_loaded:
                 if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                 st.stop()
             
+            # Verificar si el directorio extraído existe y procesar los datos
             if os.path.exists(temp_extract_path):
-
+                # Guardar la ruta absoluta del directorio extraído en el estado de la sesión
                 abs_temp_extract_path = os.path.abspath(temp_extract_path)
+                st.session_state.abs_temp_extract_path = abs_temp_extract_path  # Almacenar para uso posterior
+                
+                # Ruta absoluta de la carpeta 'data'
+                abs_data_folder_path = os.path.join(abs_temp_extract_path, 'data')
+                st.write(f"Ruta absoluta esperada para la carpeta 'data': {abs_data_folder_path}")
                 
               # La carpeta 'data' debería estar dentro de abs_temp_extract_path
                 abs_data_folder_path = os.path.join(abs_temp_extract_path, 'data')
@@ -601,241 +608,295 @@ if not st.session_state.data_loaded:
                     if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
                     if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
                     st.stop()
-
+                    
+                # Cargar imágenes en el estado de la sesión
                 st.session_state.image_folders = {}
                 loaded_any_images = False
 
-                st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---") # Nueva sección de depuración
-                
+                st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---")
                 for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
-                    abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)                   
+                    abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)
                     st.write(f"Procesando grupo '{age_group_key}', carpeta '{folder_name_in_zip}', ruta ABS: '{abs_current_img_folder_path}'")
-
+    
                     if os.path.exists(abs_current_img_folder_path) and os.path.isdir(abs_current_img_folder_path):
                         st.success(f"La carpeta ABSOLUTA '{abs_current_img_folder_path}' EXISTE.")
-                        
-                        archivos_en_carpeta = []
-                        try:
-                            archivos_en_carpeta = os.listdir(abs_current_img_folder_path)
-                        except Exception as e_listdir:
-                             st.error(f"Error al listar archivos en '{abs_current_img_folder_path}': {e_listdir}")
-                        
-                        st.write(f"Archivos encontrados en '{abs_current_img_folder_path}' (hasta 5): {archivos_en_carpeta[:5]}")
-
-                        # ***** PRUEBA DE EXISTENCIA ESPECÍFICA (usando rutas absolutas) *****
-                        if archivos_en_carpeta:
-                            primer_jpg_detectado = next((f for f in archivos_en_carpeta if f.lower().endswith((".jpg", ".jpeg"))), None)
-                            if primer_jpg_detectado:
-                                ruta_abs_del_primer_jpg = os.path.join(abs_current_img_folder_path, primer_jpg_detectado)
-                                st.write(f"Test os.path.exists para: '{ruta_abs_del_primer_jpg}'")
-                                st.write(f"Resultado: {os.path.exists(ruta_abs_del_primer_jpg)}")
-                            else:
-                                st.warning(f"No se encontraron .jpg/.jpeg en '{abs_current_img_folder_path}' para test.")
-                        else:
-                            st.warning(f"'{abs_current_img_folder_path}' está vacía o no se pudo listar.")
-
-                        images = read_images_from_folder(abs_current_img_folder_path) # Pasas la ruta absoluta
+                        archivos_en_carpeta = os.listdir(abs_current_img_folder_path)[:5]
+                        st.write(f"Archivos encontrados en '{abs_current_img_folder_path}' (hasta 5): {archivos_en_carpeta}")
+    
+                        images = read_images_from_folder(abs_current_img_folder_path)
                         st.session_state.image_folders[folder_name_in_zip] = images
                         st.write(f"Cargadas {len(images)} imágenes de '{folder_name_in_zip}'.")
-                        if images: 
+                        if images:
                             loaded_any_images = True
                     else:
                         st.warning(f"Carpeta ABS '{abs_current_img_folder_path}' NO encontrada o no es dir.")
-                
-                st.write("--- FIN VERIFICACIÓN Y CARGA DE IMÁGENES ---") 
-                
-                if not loaded_any_images and not st.session_state.image_folders: # Check if any images at all were loaded
-                    st.error("No se cargaron imágenes de ninguna carpeta de grupo. Verifique la estructura del ZIP y los nombres de las carpetas.")
-                    # Clean up and stop
-                    if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                    if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+    
+                if not loaded_any_images:
+                    st.error("No se cargaron imágenes de ninguna carpeta de grupo. Verifique la estructura del ZIP.")
+                    if os.path.exists(temp_zip_path):
+                        os.remove(temp_zip_path)
+                    if os.path.exists(temp_extract_path):
+                        shutil.rmtree(temp_extract_path, ignore_errors=True)
                     st.stop()
-
-                # Load DataFrame
-                csv_files = [f for f in os.listdir(abs_data_folder_path) if f.endswith('.csv') and (f.startswith('df_') or True)]
+    
+                # Cargar el DataFrame
+                csv_files = [f for f in os.listdir(abs_data_folder_path) if f.endswith('.csv')]
                 if not csv_files:
                     st.error(f"No se encontró ningún archivo CSV en '{abs_data_folder_path}'.")
-                    if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                    if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+                    if os.path.exists(temp_zip_path):
+                        os.remove(temp_zip_path)
+                    if os.path.exists(temp_extract_path):
+                        shutil.rmtree(temp_extract_path, ignore_errors=True)
                     st.stop()
-                
+    
                 csv_file_path = os.path.join(abs_data_folder_path, csv_files[0])
-                st.write(f"Intentando leer CSV desde: {csv_file_path}")
-                
-                df_temp = None # Inicializar a None
-                read_error = None
-                
-                try:
-                    df_temp = pd.read_csv(csv_file_path)
-                except Exception as e:
-                    read_error = e
-                    st.error(f"Excepción DIRECTA al llamar a pd.read_csv: {type(e).__name__} - {e}")
-                
-                st.write(f"Tipo de df_temp después de pd.read_csv: {type(df_temp)}")
-                
-                if df_temp is None:
-                    st.error(f"df_temp ES None después de pd.read_csv. Error de lectura previo (si hubo): {read_error}")
-                    # Aquí puedes añadir el intento con 'latin1' y la inspección de las primeras líneas si es necesario
-                    try:
-                        st.write("Intentando leer CSV con encoding 'latin1' como prueba...")
-                        df_temp_latin1 = pd.read_csv(csv_file_path, encoding='latin1')
-                        if df_temp_latin1 is not None:
-                            st.info("Leer con 'latin1' devolvió un objeto. Tipo: {type(df_temp_latin1)}")
-                            if not df_temp_latin1.empty:
-                                st.info("DataFrame con latin1 no está vacío.")
-                                df_temp = df_temp_latin1 # Intentar usar este
-                            else:
-                                 st.warning(f"DataFrame con latin1 está VACÍO. Columnas: {df_temp_latin1.columns.tolist()}")
-                        else:
-                            st.warning("Leer con 'latin1' también devolvió None.")
-                    except Exception as e_latin1:
-                        st.warning(f"Error al intentar leer con 'latin1': {type(e_latin1).__name__} - {e_latin1}")
-                
-                    if df_temp is None: # Si sigue siendo None
-                        st.warning("El DataFrame sigue siendo None. Inspeccionando primeras líneas del archivo...")
-                        try:
-                            with open(csv_file_path, 'r', errors='ignore') as f_inspect:
-                                st.text("Primeras 5 líneas del archivo CSV:")
-                                for i in range(5):
-                                    line = f_inspect.readline()
-                                    if not line: break
-                                    st.text(f"L{i+1}: {line.strip()}")
-                        except Exception as e_inspect:
-                            st.warning(f"No se pudieron leer las primeras líneas para inspección: {e_inspect}")
-                        
-                        if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                        if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
-                        st.stop() # Detener si no se puede cargar
-                
-                # Si llegamos aquí, df_temp NO debería ser None
-                st.write(f"DataFrame procesado (antes de más operaciones). Columnas: {df_temp.columns.tolist()}") # ESTA LÍNEA AHORA DEBERÍA FUNCIONAR
-                
-                # --- AHORA REINTRODUCIMOS EL RESTO DE LA LÓGICA DE FORMA SEGURA ---
-                try:
-                    original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
-                    actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
-                    
-                    st.write(f"Usando '{original_fn_col}' como columna de nombre de archivo original.")
-                    st.write(f"Se creará/usará '{actual_fn_col}' para los nombres de archivo de imagen reales.")
-                    
-                    if original_fn_col in df_temp.columns:
-                        df_temp[actual_fn_col] = df_temp[original_fn_col].apply(
-                            lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
-                        )
-                        st.write(f"Columna '{actual_fn_col}' creada/actualizada.")
-                    elif actual_fn_col in df_temp.columns:
-                        st.write(f"Usando columna existente '{actual_fn_col}' para nombres de archivo de imagen.")
-                    else:
-                        st.error(f"No se encontró la columna '{original_fn_col}' para procesar, ni la columna '{actual_fn_col}' preexistente.")
-                        st.stop()
-                        
-                    st.session_state.df_results = df_temp
-                
-                except Exception as e_processing:
-                    st.error(f"Error DURANTE EL PROCESAMIENTO del DataFrame (después de la lectura): {type(e_processing).__name__} - {e_processing}")
-                    if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                    if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
-                    st.stop()
-                
-                
-                # El resto de tu código para comprobar columnas requeridas, dropna, etc.
-                if st.session_state.df_results is None:
-                    st.error("Error crítico: df_results es None después del bloque try-except de carga. Deteniendo.")
-                    if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                    if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
-                    st.stop()
-                
-                if st.session_state.df_results is not None:
-                    # required_columns = ['filename', 'prompt', 'age_group', 'ID']
-            
-                    required_columns = [st.session_state.ORIGINAL_FILENAME_COLUMN, 
-                    st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN, # Asegurarse que esta exista después del paso anterior
-                    'prompt', 'age_group', 'ID']
-                    # Quitar duplicados si original_fn_col y actual_fn_col son iguales (poco probable aquí)
-                    required_columns = list(dict.fromkeys(required_columns)) 
-                    
-                    missing_columns = [col for col in required_columns if col not in st.session_state.df_results.columns]
-                    if missing_columns:
-                        st.error(f"Las siguientes columnas obligatorias no se encontraron en el DataFrame: {', '.join(missing_columns)}")
-                        if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
-                        if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
-                        st.stop()
-
-                    # Asegurarse de no eliminar filas si la columna ACTUAL_IMAGE_FILENAME_COLUMN
-                    # pudiera tener NaNs debido a que la ORIGINAL_FILENAME_COLUMN tenía NaNs.
-                    # Es mejor hacer dropna solo en las columnas que siempre deben tener valor.
-                    cols_for_dropna = [st.session_state.ORIGINAL_FILENAME_COLUMN, 'prompt', 'age_group', 'ID']
-                    if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN not in cols_for_dropna: # Evitar duplicados
-                        if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN in st.session_state.df_results.columns:
-                             cols_for_dropna.append(st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN)
-                    
-                    st.session_state.df_results = st.session_state.df_results.dropna(subset=required_columns)
-                    
-                    # Standardize age_group to lower for matching with EXPECTED_GROUP_FOLDERS keys
-                    if 'age_group' in st.session_state.df_results.columns:
-                         st.session_state.df_results['age_group'] = st.session_state.df_results['age_group'].astype(str).str.lower()
-
-                    # Define categories to populate dynamically for filters
-                    # These should be the *keys* you use for st.session_state.categories
-                    # and will map to DataFrame column names.
-                    category_keys_to_populate = {
-                        "gender": "gender", "race": "race", "emotion": "emotion",
-                        "personality": "personality", "position": "position",
-                        "person_count": "person_count", "location": "location",
-                        # "activities" is special (searches prompt), no direct column needed unless you have one
-                    }
-                    
-                    for cat_key, df_col_name in category_keys_to_populate.items():
-                        if df_col_name in st.session_state.df_results.columns:
-                            st.session_state.categories[cat_key] = get_unique_list_items(st.session_state.df_results, df_col_name)
-                            if cat_key == 'personality' and st.session_state.categories[cat_key]: # Example: lowercase personality
-                                st.session_state.categories[cat_key] = [p.lower() for p in st.session_state.categories[cat_key]]
-                                st.session_state.df_results[df_col_name] = st.session_state.df_results[df_col_name].astype(str).str.lower()
-                        else:
-                            st.warning(f"Columna '{df_col_name}' para la categoría '{cat_key}' no encontrada en el DataFrame. El filtro no estará disponible.")
-                            st.session_state.categories[cat_key] = []
-                    
-                    # For activities, if you have a predefined list of keywords you want to offer:
-                    # st.session_state.categories['activities'] = ["keyword1", "keyword2", ...] 
-                    # Otherwise, it remains empty, and users use the general search or a dedicated prompt search.
-                    # For now, let's keep it empty to fulfill "sin tener que especificar las actividades"
-                    st.session_state.categories['activities'] = [] # No predefined activity options initially
-                    # If you want to populate from a specific "activity_keywords" column, you could do:
-                    # if 'activity_keywords' in st.session_state.df_results.columns:
-                    #    st.session_state.categories['activities'] = get_unique_list_items(st.session_state.df_results, 'activity_keywords')
-
-
-                    st.session_state.data_loaded = True
-                    st.success("Datos cargados y procesados correctamente. La aplicación se actualizará.")
-                    
-            # Clean up temporary files
-            if os.path.exists(temp_zip_path):
-                os.remove(temp_zip_path)
-                
-            # if os.path.exists(temp_extract_path):
-            #     shutil.rmtree(temp_extract_path, ignore_errors=True)
-            
-            # if st.session_state.data_loaded:
-            #     st.rerun()
-            # else:
-            #     st.error("La carga de datos falló. Revise los mensajes anteriores.")
-
-            # La carpeta extraída (temp_extract_path) SÓLO se elimina si la carga FALLÓ
-            # antes de llegar aquí. Si la carga fue exitosa (st.session_state.data_loaded es True),
-            # NECESITAMOS CONSERVAR LA CARPETA para que el dashboard pueda mostrar las imágenes.
-            # La limpieza en caso de error ya se maneja en los bloques st.stop() anteriores.
-            # La función extract_zip también limpia el directorio si ya existe al inicio.
+                st.session_state.df_results = pd.read_csv(csv_file_path)
+                st.session_state.data_loaded = True
+                st.success("Datos cargados y procesados correctamente.")
+    
+            # Limpieza condicional al final
             if st.session_state.data_loaded:
-                 st.write(f"Conservando carpeta extraída en: {os.path.abspath(temp_extract_path)}")
-                 st.rerun() # Ejecutar rerun sólo si la carga fue exitosa
+                st.write(f"Conservando archivo ZIP en: {temp_zip_path}")
+                st.write(f"Conservando carpeta extraída en: {abs_temp_extract_path}")
+                st.rerun()  # Actualizar la aplicación para mostrar el dashboard
             else:
-                # Este 'else' probablemente nunca se alcance si los st.stop() funcionan,
-                # pero por seguridad, si data_loaded no es True aquí, limpiamos.
-                st.error("La carga de datos parece haber fallado implícitamente. Limpiando carpeta extraída.")
+                st.error("La carga de datos falló. Limpiando archivos temporales.")
+                if os.path.exists(temp_zip_path):
+                    os.remove(temp_zip_path)
                 if os.path.exists(temp_extract_path):
-                    st.write(f"Eliminando carpeta extraída temporal debido a fallo: {temp_extract_path}")
                     shutil.rmtree(temp_extract_path, ignore_errors=True)
-            # --- FIN SECCIÓN DE LIMPIEZA MODIFICADA ---
+
+
+            #     st.write("--- VERIFICACIÓN DETALLADA DE ARCHIVOS EXTRAÍDOS ---") # Nueva sección de depuración
+            #     for age_group_key, folder_name_in_zip in EXPECTED_GROUP_FOLDERS.items():
+            #         abs_current_img_folder_path = os.path.join(abs_data_folder_path, folder_name_in_zip)                   
+            #         st.write(f"Procesando grupo '{age_group_key}', carpeta '{folder_name_in_zip}', ruta ABS: '{abs_current_img_folder_path}'")
+
+            #         if os.path.exists(abs_current_img_folder_path) and os.path.isdir(abs_current_img_folder_path):
+            #             st.success(f"La carpeta ABSOLUTA '{abs_current_img_folder_path}' EXISTE.")
+            #             archivos_en_carpeta = []
+            #             try:
+            #                 archivos_en_carpeta = os.listdir(abs_current_img_folder_path)
+            #             except Exception as e_listdir:
+            #                  st.error(f"Error al listar archivos en '{abs_current_img_folder_path}': {e_listdir}")
+            #             st.write(f"Archivos encontrados en '{abs_current_img_folder_path}' (hasta 5): {archivos_en_carpeta[:5]}")
+
+            #             # ***** PRUEBA DE EXISTENCIA ESPECÍFICA (usando rutas absolutas) *****
+            #             if archivos_en_carpeta:
+            #                 primer_jpg_detectado = next((f for f in archivos_en_carpeta if f.lower().endswith((".jpg", ".jpeg"))), None)
+            #                 if primer_jpg_detectado:
+            #                     ruta_abs_del_primer_jpg = os.path.join(abs_current_img_folder_path, primer_jpg_detectado)
+            #                     st.write(f"Test os.path.exists para: '{ruta_abs_del_primer_jpg}'")
+            #                     st.write(f"Resultado: {os.path.exists(ruta_abs_del_primer_jpg)}")
+            #                 else:
+            #                     st.warning(f"No se encontraron .jpg/.jpeg en '{abs_current_img_folder_path}' para test.")
+            #             else:
+            #                 st.warning(f"'{abs_current_img_folder_path}' está vacía o no se pudo listar.")
+
+            #             images = read_images_from_folder(abs_current_img_folder_path) # Pasas la ruta absoluta
+            #             st.session_state.image_folders[folder_name_in_zip] = images
+            #             st.write(f"Cargadas {len(images)} imágenes de '{folder_name_in_zip}'.")
+            #             if images: 
+            #                 loaded_any_images = True
+            #         else:
+            #             st.warning(f"Carpeta ABS '{abs_current_img_folder_path}' NO encontrada o no es dir.")
+                
+            #     st.write("--- FIN VERIFICACIÓN Y CARGA DE IMÁGENES ---") 
+                
+            #     if not loaded_any_images and not st.session_state.image_folders: # Check if any images at all were loaded
+            #         st.error("No se cargaron imágenes de ninguna carpeta de grupo. Verifique la estructura del ZIP y los nombres de las carpetas.")
+            #         # Clean up and stop
+            #         if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
+            #         if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #         st.stop()
+
+            #     # Load DataFrame
+            #     csv_files = [f for f in os.listdir(abs_data_folder_path) if f.endswith('.csv') and (f.startswith('df_') or True)]
+            #     if not csv_files:
+            #         st.error(f"No se encontró ningún archivo CSV en '{abs_data_folder_path}'.")
+            #         if os.path.exists(temp_zip_path): 
+            #             os.remove(temp_zip_path)
+            #         if os.path.exists(temp_extract_path): 
+            #             shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #         st.stop()
+                
+            #     csv_file_path = os.path.join(abs_data_folder_path, csv_files[0])
+            #     st.write(f"Intentando leer CSV desde: {csv_file_path}")
+                
+            #     df_temp = None # Inicializar a None
+            #     read_error = None
+                
+            #     try:
+            #         df_temp = pd.read_csv(csv_file_path)
+            #     except Exception as e:
+            #         read_error = e
+            #         st.error(f"Excepción DIRECTA al llamar a pd.read_csv: {type(e).__name__} - {e}")
+                
+            #     st.write(f"Tipo de df_temp después de pd.read_csv: {type(df_temp)}")
+                
+            #     if df_temp is None:
+            #         st.error(f"df_temp ES None después de pd.read_csv. Error de lectura previo (si hubo): {read_error}")
+            #         # Aquí puedes añadir el intento con 'latin1' y la inspección de las primeras líneas si es necesario
+            #         try:
+            #             st.write("Intentando leer CSV con encoding 'latin1' como prueba...")
+            #             df_temp_latin1 = pd.read_csv(csv_file_path, encoding='latin1')
+            #             if df_temp_latin1 is not None:
+            #                 st.info("Leer con 'latin1' devolvió un objeto. Tipo: {type(df_temp_latin1)}")
+            #                 if not df_temp_latin1.empty:
+            #                     st.info("DataFrame con latin1 no está vacío.")
+            #                     df_temp = df_temp_latin1 # Intentar usar este
+            #                 else:
+            #                      st.warning(f"DataFrame con latin1 está VACÍO. Columnas: {df_temp_latin1.columns.tolist()}")
+            #             else:
+            #                 st.warning("Leer con 'latin1' también devolvió None.")
+            #         except Exception as e_latin1:
+            #             st.warning(f"Error al intentar leer con 'latin1': {type(e_latin1).__name__} - {e_latin1}")
+                
+            #         if df_temp is None: # Si sigue siendo None
+            #             st.warning("El DataFrame sigue siendo None. Inspeccionando primeras líneas del archivo...")
+            #             try:
+            #                 with open(csv_file_path, 'r', errors='ignore') as f_inspect:
+            #                     st.text("Primeras 5 líneas del archivo CSV:")
+            #                     for i in range(5):
+            #                         line = f_inspect.readline()
+            #                         if not line: break
+            #                         st.text(f"L{i+1}: {line.strip()}")
+            #             except Exception as e_inspect:
+            #                 st.warning(f"No se pudieron leer las primeras líneas para inspección: {e_inspect}")
+                        
+            #             if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
+            #             if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #             st.stop() # Detener si no se puede cargar
+                
+            #     # Si llegamos aquí, df_temp NO debería ser None
+            #     st.write(f"DataFrame procesado (antes de más operaciones). Columnas: {df_temp.columns.tolist()}") # ESTA LÍNEA AHORA DEBERÍA FUNCIONAR
+                
+            #     # --- AHORA REINTRODUCIMOS EL RESTO DE LA LÓGICA DE FORMA SEGURA ---
+            #     try:
+            #         original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
+            #         actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
+                    
+            #         st.write(f"Usando '{original_fn_col}' como columna de nombre de archivo original.")
+            #         st.write(f"Se creará/usará '{actual_fn_col}' para los nombres de archivo de imagen reales.")
+                    
+            #         if original_fn_col in df_temp.columns:
+            #             df_temp[actual_fn_col] = df_temp[original_fn_col].apply(
+            #                 lambda x: x.rpartition('.')[0] + '.jpg' if isinstance(x, str) and x.lower().endswith('.png') else x
+            #             )
+            #             st.write(f"Columna '{actual_fn_col}' creada/actualizada.")
+            #         elif actual_fn_col in df_temp.columns:
+            #             st.write(f"Usando columna existente '{actual_fn_col}' para nombres de archivo de imagen.")
+            #         else:
+            #             st.error(f"No se encontró la columna '{original_fn_col}' para procesar, ni la columna '{actual_fn_col}' preexistente.")
+            #             st.stop()
+                        
+            #         st.session_state.df_results = df_temp
+                
+            #     except Exception as e_processing:
+            #         st.error(f"Error DURANTE EL PROCESAMIENTO del DataFrame (después de la lectura): {type(e_processing).__name__} - {e_processing}")
+            #         if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
+            #         if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #         st.stop()
+                
+                
+            #     # El resto de tu código para comprobar columnas requeridas, dropna, etc.
+            #     if st.session_state.df_results is None:
+            #         st.error("Error crítico: df_results es None después del bloque try-except de carga. Deteniendo.")
+            #         if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
+            #         if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #         st.stop()
+                
+            #     if st.session_state.df_results is not None:
+            #         # required_columns = ['filename', 'prompt', 'age_group', 'ID']
+            
+            #         required_columns = [st.session_state.ORIGINAL_FILENAME_COLUMN, 
+            #         st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN, # Asegurarse que esta exista después del paso anterior
+            #         'prompt', 'age_group', 'ID']
+            #         # Quitar duplicados si original_fn_col y actual_fn_col son iguales (poco probable aquí)
+            #         required_columns = list(dict.fromkeys(required_columns)) 
+                    
+            #         missing_columns = [col for col in required_columns if col not in st.session_state.df_results.columns]
+            #         if missing_columns:
+            #             st.error(f"Las siguientes columnas obligatorias no se encontraron en el DataFrame: {', '.join(missing_columns)}")
+            #             if os.path.exists(temp_zip_path): os.remove(temp_zip_path)
+            #             if os.path.exists(temp_extract_path): shutil.rmtree(temp_extract_path, ignore_errors=True)
+            #             st.stop()
+
+            #         # Asegurarse de no eliminar filas si la columna ACTUAL_IMAGE_FILENAME_COLUMN
+            #         # pudiera tener NaNs debido a que la ORIGINAL_FILENAME_COLUMN tenía NaNs.
+            #         # Es mejor hacer dropna solo en las columnas que siempre deben tener valor.
+            #         cols_for_dropna = [st.session_state.ORIGINAL_FILENAME_COLUMN, 'prompt', 'age_group', 'ID']
+            #         if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN not in cols_for_dropna: # Evitar duplicados
+            #             if st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN in st.session_state.df_results.columns:
+            #                  cols_for_dropna.append(st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN)
+                    
+            #         st.session_state.df_results = st.session_state.df_results.dropna(subset=required_columns)
+                    
+            #         # Standardize age_group to lower for matching with EXPECTED_GROUP_FOLDERS keys
+            #         if 'age_group' in st.session_state.df_results.columns:
+            #              st.session_state.df_results['age_group'] = st.session_state.df_results['age_group'].astype(str).str.lower()
+
+            #         # Define categories to populate dynamically for filters
+            #         # These should be the *keys* you use for st.session_state.categories
+            #         # and will map to DataFrame column names.
+            #         category_keys_to_populate = {
+            #             "gender": "gender", "race": "race", "emotion": "emotion",
+            #             "personality": "personality", "position": "position",
+            #             "person_count": "person_count", "location": "location",
+            #             # "activities" is special (searches prompt), no direct column needed unless you have one
+            #         }
+                    
+            #         for cat_key, df_col_name in category_keys_to_populate.items():
+            #             if df_col_name in st.session_state.df_results.columns:
+            #                 st.session_state.categories[cat_key] = get_unique_list_items(st.session_state.df_results, df_col_name)
+            #                 if cat_key == 'personality' and st.session_state.categories[cat_key]: # Example: lowercase personality
+            #                     st.session_state.categories[cat_key] = [p.lower() for p in st.session_state.categories[cat_key]]
+            #                     st.session_state.df_results[df_col_name] = st.session_state.df_results[df_col_name].astype(str).str.lower()
+            #             else:
+            #                 st.warning(f"Columna '{df_col_name}' para la categoría '{cat_key}' no encontrada en el DataFrame. El filtro no estará disponible.")
+            #                 st.session_state.categories[cat_key] = []
+                    
+            #         # For activities, if you have a predefined list of keywords you want to offer:
+            #         # st.session_state.categories['activities'] = ["keyword1", "keyword2", ...] 
+            #         # Otherwise, it remains empty, and users use the general search or a dedicated prompt search.
+            #         # For now, let's keep it empty to fulfill "sin tener que especificar las actividades"
+            #         st.session_state.categories['activities'] = [] # No predefined activity options initially
+            #         # If you want to populate from a specific "activity_keywords" column, you could do:
+            #         # if 'activity_keywords' in st.session_state.df_results.columns:
+            #         #    st.session_state.categories['activities'] = get_unique_list_items(st.session_state.df_results, 'activity_keywords')
+
+
+            #         st.session_state.data_loaded = True
+            #         st.success("Datos cargados y procesados correctamente. La aplicación se actualizará.")
+                    
+            # # Clean up temporary files
+            # if os.path.exists(temp_zip_path):
+            #     os.remove(temp_zip_path)
+                
+            # # if os.path.exists(temp_extract_path):
+            # #     shutil.rmtree(temp_extract_path, ignore_errors=True)
+            
+            # # if st.session_state.data_loaded:
+            # #     st.rerun()
+            # # else:
+            # #     st.error("La carga de datos falló. Revise los mensajes anteriores.")
+
+            # # La carpeta extraída (temp_extract_path) SÓLO se elimina si la carga FALLÓ
+            # # antes de llegar aquí. Si la carga fue exitosa (st.session_state.data_loaded es True),
+            # # NECESITAMOS CONSERVAR LA CARPETA para que el dashboard pueda mostrar las imágenes.
+            # # La limpieza en caso de error ya se maneja en los bloques st.stop() anteriores.
+            # # La función extract_zip también limpia el directorio si ya existe al inicio.
+            # if st.session_state.data_loaded:
+            #      st.write(f"Conservando carpeta extraída en: {os.path.abspath(temp_extract_path)}")
+            #      st.rerun() # Ejecutar rerun sólo si la carga fue exitosa
+            # else:
+            #     # Este 'else' probablemente nunca se alcance si los st.stop() funcionan,
+            #     # pero por seguridad, si data_loaded no es True aquí, limpiamos.
+            #     st.error("La carga de datos parece haber fallado implícitamente. Limpiando carpeta extraída.")
+            #     if os.path.exists(temp_extract_path):
+            #         st.write(f"Eliminando carpeta extraída temporal debido a fallo: {temp_extract_path}")
+            #         shutil.rmtree(temp_extract_path, ignore_errors=True)
+            # # --- FIN SECCIÓN DE LIMPIEZA MODIFICADA ---
 
 else: # Data is loaded, show dashboard
     df_results = st.session_state.df_results
