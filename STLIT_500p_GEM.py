@@ -29,10 +29,10 @@ st.set_page_config(layout="wide")
 # Define new group names and corresponding folder names
 # Ensure these folder names EXACTLY match what's inside your 'data/' directory in the ZIP
 EXPECTED_GROUP_FOLDERS = {
-    "old": "OLD",
-    "young": "YOUNG",
-    "middle-age": "MIDDLE-AGE", # Use the exact value from your 'age_group' column
-    "person": "PERSON" # Assuming 'person' is an age_group value
+    "old": "older",
+    "young": "younger",
+    "middle-age": "middle-aged", # Use the exact value from your 'age_group' column
+    "person": "person" # Assuming 'person' is an age_group value
 }
 # If your age_group column has values like 'older', 'younger', 'middle_aged', 'general_person'
 # then update EXPECTED_GROUP_FOLDERS keys accordingly.
