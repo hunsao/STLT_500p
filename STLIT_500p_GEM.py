@@ -340,7 +340,7 @@ def show_image_details(image_data):
     for key, value in image_data.items():
         st.write(f"**{key}:** {value}")
 
-@st.cache_data(persist="disk")
+#@st.cache_data(persist="disk")
 # def read_images_from_folder(folder_path):
 #     images = {}
 #     if not os.path.exists(folder_path):
