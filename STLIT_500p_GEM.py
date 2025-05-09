@@ -14,10 +14,10 @@ from st_aggrid import AgGrid
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload, build_http # build_http para el servicio
-from google_auth_httplib2 import Request 
+from googleapiclient.http import MediaIoBaseDownload
+# from google_auth_httplib2 import Request # Not explicitly used, http is built directly
 from googleapiclient.errors import HttpError
-from google_auth_httplib2 import AuthorizedHttp 
+from google_auth_httplib2 import AuthorizedHttp # Asegúrate de que esta librería esté instalada
 
 st.set_page_config(layout="wide")
 
@@ -109,50 +109,45 @@ def create_downloadable_zip(_filtered_df, _image_folders_dict): # Cachear la cre
     zip_buffer.seek(0)
     return zip_buffer
 
-@st.cache_resource # Cachear el servicio de Drive
+@st.cache_resource
 def get_drive_service():
     try:
         encoded_sa = os.getenv('GOOGLE_SERVICE_ACCOUNT')
-        if not encoded_sa and 'GOOGLE_SERVICE_ACCOUNT_B64' in st.secrets:
-            encoded_sa = st.secrets['GOOGLE_SERVICE_ACCOUNT_B64']
-        
         if not encoded_sa:
-            raise ValueError("GOOGLE_SERVICE_ACCOUNT o GOOGLE_SERVICE_ACCOUNT_B64 no configurados.")
+            # Intenta cargar desde los secretos de Streamlit si no está en el entorno
+            if 'GOOGLE_SERVICE_ACCOUNT_B64' in st.secrets:
+                encoded_sa = st.secrets['GOOGLE_SERVICE_ACCOUNT_B64']
+            else:
+                raise ValueError("La variable de entorno GOOGLE_SERVICE_ACCOUNT o el secreto GOOGLE_SERVICE_ACCOUNT_B64 no están configurados")
 
         sa_json = base64.b64decode(encoded_sa).decode('utf-8')
         sa_dict = json.loads(sa_json)
+
         credentials = service_account.Credentials.from_service_account_info(
-            sa_dict, scopes=['https://www.googleapis.com/auth/drive.readonly']
+            sa_dict,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
-        
-        service_http = build_http() # Obtiene un httplib2.Http()
-        service_http.timeout = 120  # Establece el timeout en el objeto http
-        
-        # Construye el servicio usando las credenciales. El cliente http se construirá internamente
-        # o puedes pasar el service_http que ya tiene el timeout si es necesario para refrescar
-        # el token automáticamente. La documentación sugiere que pasar solo credentials es suficiente
-        # y el cliente maneja la creación del http.
-        # Sin embargo, para asegurar nuestro timeout y manejo, envolvemos las credenciales.
-        from google.auth.transport.requests import Request
-        from google.auth.transport.httplib2 import AuthorizedHttp # Sí, esta es de google.auth.transport
 
-        authed_http_from_transport = AuthorizedHttp(credentials, http=service_http)
-        
-        service = build('drive', 'v3', http=authed_http_from_transport) # Solo pasar el http autorizado
+        # Crear un cliente HTTP autorizado a partir de las credenciales
+        authed_http = AuthorizedHttp(credentials)
 
-        return service
-
-    except ModuleNotFoundError as e_mod:
-        if "google_auth_httplib2" in str(e_mod):
-            st.error("La librería 'google-auth-httplib2' no está instalada. "
-                     "Por favor, añádela a tu archivo requirements.txt y reinstala las dependencias.")
-        elif "google.auth.transport.httplib2" in str(e_mod):
-             st.error("Parte de la librería 'google-auth' parece faltar o no estar instalada correctamente ('google.auth.transport.httplib2'). "
-                      "Asegúrate de que 'google-auth' y 'google-auth-httplib2' están en requirements.txt.")
+        if hasattr(authed_http, 'timeout'):
+             authed_http.timeout = 120
         else:
-            st.error(f"Error de Módulo no encontrado: {e_mod}")
-        return None
+            import httplib2
+            http_client = httplib2.Http(timeout=120)
+            authed_http = AuthorizedHttp(credentials, http=http_client)
+
+
+        # Construir el servicio usando el cliente HTTP autorizado y configurado
+        service = build('drive', 'v3', http=authed_http)
+        return service
     except Exception as e:
+        # Captura el error específico si es de tipo AttributeError por 'timeout'
+        if isinstance(e, AttributeError) and "'AuthorizedHttp' object has no attribute 'timeout'" in str(e):
+             st.error(f"Error configurando timeout en AuthorizedHttp: {str(e)}. "
+                      "Esto podría requerir un ajuste en cómo se instancia httplib2.Http "
+                      "con el timeout antes de pasarlo a AuthorizedHttp.")
         st.error(f"Error al obtener el servicio de Google Drive: {str(e)}")
         return None
 
