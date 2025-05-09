@@ -125,12 +125,33 @@ def get_drive_service():
             sa_dict, scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
         
-        # Usar build_http para configurar el timeout de forma más estándar
-        http_client = build_http()
-        http_client.timeout = 120 # segundos
+        service_http = build_http() # Obtiene un httplib2.Http()
+        service_http.timeout = 120  # Establece el timeout en el objeto http
         
-        service = build('drive', 'v3', credentials=credentials, http=http_client)
+        # Construye el servicio usando las credenciales. El cliente http se construirá internamente
+        # o puedes pasar el service_http que ya tiene el timeout si es necesario para refrescar
+        # el token automáticamente. La documentación sugiere que pasar solo credentials es suficiente
+        # y el cliente maneja la creación del http.
+        # Sin embargo, para asegurar nuestro timeout y manejo, envolvemos las credenciales.
+        from google.auth.transport.requests import Request
+        from google.auth.transport.httplib2 import AuthorizedHttp # Sí, esta es de google.auth.transport
+
+        authed_http_from_transport = AuthorizedHttp(credentials, http=service_http)
+        
+        service = build('drive', 'v3', http=authed_http_from_transport) # Solo pasar el http autorizado
+
         return service
+
+    except ModuleNotFoundError as e_mod:
+        if "google_auth_httplib2" in str(e_mod):
+            st.error("La librería 'google-auth-httplib2' no está instalada. "
+                     "Por favor, añádela a tu archivo requirements.txt y reinstala las dependencias.")
+        elif "google.auth.transport.httplib2" in str(e_mod):
+             st.error("Parte de la librería 'google-auth' parece faltar o no estar instalada correctamente ('google.auth.transport.httplib2'). "
+                      "Asegúrate de que 'google-auth' y 'google-auth-httplib2' están en requirements.txt.")
+        else:
+            st.error(f"Error de Módulo no encontrado: {e_mod}")
+        return None
     except Exception as e:
         st.error(f"Error al obtener el servicio de Google Drive: {str(e)}")
         return None
