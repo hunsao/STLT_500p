@@ -638,9 +638,9 @@ if 'categories' not in st.session_state:
          'running',
          'riding a bike',
          'skiing',
-         'skating'] 
+         'skating'], 
         "emotion": [],
-        "personality": ["Conscientiousness", "Ppenness", "Extraversion", 
+        "personality": ["Conscientiousness", "Openness", "Extraversion", 
                 "Agreeableness", "Neuroticism"], 
         "position": [], 
         "person_count": [], 
