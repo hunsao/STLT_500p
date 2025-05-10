@@ -276,52 +276,52 @@ st.markdown("<h1 style='text-align: center; color: white;'>AGEAI: Imágenes y Me
 
 # Instrucciones (sin cambios, se puede colapsar por defecto)
 with st.expander("📋 Instrucciones para el archivo ZIP", expanded=not st.session_state.data_loaded):
-st.markdown(f"""
-<details>
-<summary>📋 Instrucciones para el archivo ZIP</summary>
-
-<h3>📁 Estructura de Carpetas</h3>
-El archivo ZIP debe contener una carpeta `data/` en su raíz. Dentro de `data/`, deben estar:
-<ul>
-    <li><code>data/</code>
-        <ul>
-            <li>Una carpeta para cada grupo de edad/tipo de imagen. Los nombres de estas carpetas <b>deben coincidir exactamente</b> con los valores definidos en <code>EXPECTED_GROUP_FOLDERS</code> (ej: <code>{', '.join(EXPECTED_GROUP_FOLDERS.values())}</code>).
-                <ul>
-                    <li><code>OLD/</code>
-                        <ul><li>[imágenes .jpg o .jpeg]</li></ul>
-                    </li>
-                    <li><code>YOUNG/</code>
-                        <ul><li>[imágenes .jpg o .jpeg]</li></ul>
-                    </li>
-                    <li><code>MIDDLE-AGE/</code>
-                        <ul><li>[imágenes .jpg o .jpeg]</li></ul>
-                    </li>
-                    <li><code>PERSON/</code>
-                        <ul><li>[imágenes .jpg o .jpeg]</li></ul>
-                    </li>
-                    <li><i>(y así sucesivamente si hay más grupos)</i></li>
-                </ul>
-            </li>
-            <li>Un archivo CSV (ej: <code>df_results.csv</code>, <code>data.csv</code>). El nombre debe empezar con "df_" o ser un CSV genérico. La aplicación buscará el primer CSV que encuentre en la carpeta `data/`.</li>
-        </ul>
-    </li>
-</ul>
-
-<h3>📄 Archivo CSV</h3>
-<ul>
-    <li>Debe estar ubicado directamente dentro de la carpeta <code>data/</code>.</li>
-    <li>Columnas esperadas mínimas: <code>filename</code> (nombre del archivo de imagen, ej: "image1.jpg"), <code>prompt</code>, <code>age_group</code> (ej: "old", "young", "middle-age", "person" - estos valores deben coincidir con las claves de <code>EXPECTED_GROUP_FOLDERS</code>), <code>ID</code>.</li>
-    <li>Otras columnas como <code>person_count</code>, <code>location</code>, <code>objects</code>, <code>assistive_devices</code>, <code>digital_devices</code>, <code>gender</code>, <code>age</code> (rango), <code>race</code>, <code>emotion</code>, <code>personality</code>, <code>position</code> serán usadas para filtros si están presentes.</li>
-</ul>
-
-<h3>🖼️ Imágenes</h3>
-<ul>
-    <li>Formato .jpg o .jpeg.</li>
-    <li>Los nombres de archivo deben coincidir con los de la columna <code>filename</code> del CSV.</li>
-    <li>Organizadas en las carpetas de grupo correspondientes (<code>OLD/</code>, <code>YOUNG/</code>, etc.) dentro de <code>data/</code>.</li>
-</ul>
-
-</details>
+    st.markdown(f"""
+    <details>
+    <summary>📋 Instrucciones para el archivo ZIP</summary>
+    
+    <h3>📁 Estructura de Carpetas</h3>
+    El archivo ZIP debe contener una carpeta `data/` en su raíz. Dentro de `data/`, deben estar:
+    <ul>
+        <li><code>data/</code>
+            <ul>
+                <li>Una carpeta para cada grupo de edad/tipo de imagen. Los nombres de estas carpetas <b>deben coincidir exactamente</b> con los valores definidos en <code>EXPECTED_GROUP_FOLDERS</code> (ej: <code>{', '.join(EXPECTED_GROUP_FOLDERS.values())}</code>).
+                    <ul>
+                        <li><code>OLD/</code>
+                            <ul><li>[imágenes .jpg o .jpeg]</li></ul>
+                        </li>
+                        <li><code>YOUNG/</code>
+                            <ul><li>[imágenes .jpg o .jpeg]</li></ul>
+                        </li>
+                        <li><code>MIDDLE-AGE/</code>
+                            <ul><li>[imágenes .jpg o .jpeg]</li></ul>
+                        </li>
+                        <li><code>PERSON/</code>
+                            <ul><li>[imágenes .jpg o .jpeg]</li></ul>
+                        </li>
+                        <li><i>(y así sucesivamente si hay más grupos)</i></li>
+                    </ul>
+                </li>
+                <li>Un archivo CSV (ej: <code>df_results.csv</code>, <code>data.csv</code>). El nombre debe empezar con "df_" o ser un CSV genérico. La aplicación buscará el primer CSV que encuentre en la carpeta `data/`.</li>
+            </ul>
+        </li>
+    </ul>
+    
+    <h3>📄 Archivo CSV</h3>
+    <ul>
+        <li>Debe estar ubicado directamente dentro de la carpeta <code>data/</code>.</li>
+        <li>Columnas esperadas mínimas: <code>filename</code> (nombre del archivo de imagen, ej: "image1.jpg"), <code>prompt</code>, <code>age_group</code> (ej: "old", "young", "middle-age", "person" - estos valores deben coincidir con las claves de <code>EXPECTED_GROUP_FOLDERS</code>), <code>ID</code>.</li>
+        <li>Otras columnas como <code>person_count</code>, <code>location</code>, <code>objects</code>, <code>assistive_devices</code>, <code>digital_devices</code>, <code>gender</code>, <code>age</code> (rango), <code>race</code>, <code>emotion</code>, <code>personality</code>, <code>position</code> serán usadas para filtros si están presentes.</li>
+    </ul>
+    
+    <h3>🖼️ Imágenes</h3>
+    <ul>
+        <li>Formato .jpg o .jpeg.</li>
+        <li>Los nombres de archivo deben coincidir con los de la columna <code>filename</code> del CSV.</li>
+        <li>Organizadas en las carpetas de grupo correspondientes (<code>OLD/</code>, <code>YOUNG/</code>, etc.) dentro de <code>data/</code>.</li>
+    </ul>
+    
+    </details>
 """, unsafe_allow_html=True)
 st.markdown(" ")
 
