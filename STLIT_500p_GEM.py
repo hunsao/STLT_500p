@@ -23,7 +23,7 @@ st.set_page_config(layout="wide")
 
 EXPECTED_GROUP_FOLDERS = {
     "older": "OLD",
-    "younger": "YOUNG",
+    "young": "YOUNG",
     "middle-aged": "MIDDLE-AGE",
     "person": "PERSON"
 }
@@ -912,6 +912,10 @@ else: # --- INICIO BLOQUE DASHBOARD (DATOS CARGADOS) ---
     df_results = st.session_state.df_results # Este es el DF ya procesado
     image_folders_dict = st.session_state.image_folders
 
+    # Definir nombres de columna para usar en este bloque
+    actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
+    original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
+    
     st.sidebar.header("Filtrar imágenes")
 
     # Group filter
@@ -1158,6 +1162,7 @@ else: # --- INICIO BLOQUE DASHBOARD (DATOS CARGADOS) ---
 
     # Descarga de Imágenes ZIP
     if not filtered_df.empty:
+        df_for_zip = filtered_df.drop_duplicates(subset=[st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN, 'age_group'], keep='first')
         # La creación del ZIP se cachea, por lo que filtered_df y image_folders_dict deben ser argumentos
         # para que la caché se invalide si cambian.
         zip_buffer = create_downloadable_zip(filtered_df, image_folders_dict)
