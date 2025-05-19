@@ -1065,6 +1065,39 @@ else: # --- INICIO BLOQUE DASHBOARD (DATOS CARGADOS) ---
 
     if st.session_state.fullscreen_image is None:
         if not filtered_df.empty:
+
+            # --- CONTROLES DE VISUALIZACIÓN DE IMÁGENES ---
+            vis_col1, vis_col2 = st.columns(2)
+            with vis_col1:
+                images_per_row = st.slider(
+                    "Imágenes por fila en la cuadrícula", 
+                    min_value=1, max_value=10, 
+                    value=st.session_state.get("images_per_row_slider_val", 4), # Usar valor guardado o 4 por defecto
+                    key="images_per_row_slider"
+                )
+                if st.session_state.get("images_per_row_slider_val") != images_per_row:
+                    st.session_state.images_per_row_slider_val = images_per_row
+                    # No es necesario st.rerun() aquí, el slider lo causa si el valor cambia.
+                    # El cambio en el número de columnas se reflejará en el siguiente ciclo.
+
+            with vis_col2:
+                # Permitir al usuario cambiar cuántas imágenes se muestran por página
+                # Usamos la clave 'images_per_page_display_input' para el widget
+                # y actualizamos 'images_per_page_display' en session_state
+                current_images_per_page = st.session_state.get("images_per_page_display", 20)
+                new_images_per_page = st.number_input(
+                    "Imágenes por página", 
+                    min_value=images_per_row, # Mínimo debe ser al menos las imágenes por fila
+                    max_value=200, # Un límite superior razonable
+                    value=current_images_per_page, 
+                    step=images_per_row, # Saltar en múltiplos de imágenes por fila tiene sentido
+                    key="images_per_page_display_input" 
+                )
+                if new_images_per_page != current_images_per_page:
+                    st.session_state.images_per_page_display = new_images_per_page
+                    st.session_state.current_page = 1 # Resetear a la página 1 si cambia el total por página
+                    st.rerun() # Forzar rerun para que la paginación se recalcule            
+            
             # --- PAGINACIÓN ---
             total_items = st.session_state.filtered_df_count
             items_per_page = st.session_state.images_per_page_display
@@ -1072,21 +1105,31 @@ else: # --- INICIO BLOQUE DASHBOARD (DATOS CARGADOS) ---
             total_pages = (total_items + items_per_page - 1) // items_per_page
             if total_pages == 0: total_pages = 1 # Evitar división por cero si no hay items
 
-            page_col1, page_col2 = st.columns([0.7, 0.3])
-            with page_col1:
-                 images_per_row = st.slider("Imágenes por fila", min_value=1, max_value=10, value=st.session_state.get("images_per_row_slider_val", 4), key="images_per_row_slider")
-                 st.session_state.images_per_row_slider_val = images_per_row
-            with page_col2:
-                 st.session_state.current_page = st.number_input(f"Página (1-{total_pages})", 
-                                                                  min_value=1, max_value=total_pages, 
-                                                                  value=st.session_state.current_page, step=1,
-                                                                  key="image_page_selector")
+            # El selector de página ahora va después de definir items_per_page
+            # y puede estar junto a los otros controles de visualización o donde prefieras.
+            # Aquí lo pongo debajo para mantener el flujo.
+            st.session_state.current_page = st.number_input(
+                f"Página (1-{total_pages})", 
+                min_value=1, max_value=total_pages, 
+                value=min(st.session_state.current_page, total_pages), # Asegurar que no exceda total_pages
+                step=1,
+                key="image_page_selector"
+            )
+            
+            # page_col1, page_col2 = st.columns([0.7, 0.3])
+            # with page_col1:
+            #      images_per_row = st.slider("Imágenes por fila", min_value=1, max_value=10, value=st.session_state.get("images_per_row_slider_val", 4), key="images_per_row_slider")
+            #      st.session_state.images_per_row_slider_val = images_per_row
+            # with page_col2:
+            #      st.session_state.current_page = st.number_input(f"Página (1-{total_pages})", 
+            #                                                       min_value=1, max_value=total_pages, 
+            #                                                       value=st.session_state.current_page, step=1,
+            #                                                       key="image_page_selector")
 
             start_idx = (st.session_state.current_page - 1) * items_per_page
             end_idx = start_idx + items_per_page
             paginated_df_view = filtered_df.iloc[start_idx:end_idx]
             # --- FIN PAGINACIÓN ---
-
             actual_fn_col = st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN
             original_fn_col = st.session_state.ORIGINAL_FILENAME_COLUMN
 
