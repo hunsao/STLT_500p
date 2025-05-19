@@ -38,6 +38,7 @@ if 'data_loaded' not in st.session_state:
     st.session_state.ACTUAL_IMAGE_FILENAME_COLUMN = "filename_actual_jpg"
     st.session_state.current_page = 1 # Para paginación de imágenes
     st.session_state.images_per_page_display = 50 # Para paginación de imágenes
+    st.session_state.images_per_row_slider_val = 5
 
 # --- Funciones Cacheadas ---
 @st.cache_data()
